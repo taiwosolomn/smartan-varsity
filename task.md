@@ -1,0 +1,22 @@
+# Smartan Varsity — Refinement Task List
+
+- [x] Apply CSS layout centering bug fix in `css/main.css` for `#root`
+- [x] Implement backend changes in `backend/main.py` for avatar uploads:
+  - [x] Set up static files folder mounting
+  - [x] Create `POST /auth/avatar` file upload endpoint
+- [x] Implement custom in-app modals and components in React:
+  - [x] Build modal states for Edit Track, Edit Course, Delete Course, Delete Module, Delete Resource, Clear Data
+  - [x] Implement custom Goal List Editor (add/remove goals with target dates)
+- [x] Refactor `TrackView.jsx`:
+  - [x] Integrate Edit Track modal and API call
+  - [x] Integrate Module Deletion button, modal, and API call
+  - [x] Replace all native `confirm` and `prompt` pop-ups with local state modals
+  - [x] Refine Mastery Table to use log-to-course matching heuristics
+- [x] Refactor `Profile.jsx`:
+  - [x] Add Edit Profile modal (editing name, mission, goals, project details, location)
+  - [x] Integrate file uploader for profile avatar image
+  - [x] Dynamically render avatar image in header if `avatarUrl` is set
+- [x] Refactor `Settings.jsx` and `App.jsx`:
+  - [x] Replace clear data prompt with custom in-app modal
+  - [x] Dynamically render avatar image in Topbar if `avatarUrl` is set
+- [x] Rebuild and verify compilation

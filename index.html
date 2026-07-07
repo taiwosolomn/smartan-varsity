@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smartan Varsity</title>
+<link rel="stylesheet" href="css/main.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+</head>
+<body>
+
+<div class="app">
+
+<!-- ── SIDEBAR ─────────────────────────────────────────── -->
+<aside class="sidebar">
+  <div class="sidebar-logo"><span>S</span></div>
+  <nav class="sidebar-nav">
+    <a data-page="dashboard" onclick="navigate('dashboard')" title="Dashboard">
+      <i class="ti ti-layout-dashboard"></i>
+      <span class="nav-tooltip">Dashboard</span>
+    </a>
+    <a data-page="tracks" onclick="navigate('tracks')" title="Tracks">
+      <i class="ti ti-books"></i>
+      <span class="nav-tooltip">Tracks</span>
+    </a>
+    <a data-page="log" onclick="navigate('log')" title="Log Session">
+      <i class="ti ti-pencil-plus"></i>
+      <span class="nav-tooltip">Log Session</span>
+    </a>
+    <a data-page="analytics" onclick="navigate('analytics')" title="Analytics">
+      <i class="ti ti-chart-bar"></i>
+      <span class="nav-tooltip">Analytics & Reports</span>
+    </a>
+    <a data-page="calendar" onclick="navigate('calendar')" title="Calendar">
+      <i class="ti ti-calendar"></i>
+      <span class="nav-tooltip">Calendar</span>
+    </a>
+    <a data-page="resources" onclick="navigate('resources')" title="Resources">
+      <i class="ti ti-folder-open"></i>
+      <span class="nav-tooltip">Resources</span>
+    </a>
+    <a data-page="profile" onclick="navigate('profile')" title="Profile">
+      <i class="ti ti-user"></i>
+      <span class="nav-tooltip">Profile</span>
+    </a>
+    <a data-page="settings" onclick="navigate('settings')" title="Settings" style="margin-top:auto">
+      <i class="ti ti-settings"></i>
+      <span class="nav-tooltip">Settings</span>
+    </a>
+  </nav>
+</aside>
+
+<!-- ── TOPBAR ──────────────────────────────────────────── -->
+<header class="topbar">
+  <div class="topbar-left">
+    <div class="topbar-brand">STA <span>Smartan Varsity</span></div>
+    <div class="topbar-page-title" id="topbar-page-title">Dashboard</div>
+  </div>
+  <div class="topbar-right">
+    <div class="topbar-streak" id="topbar-streak">🔥 0 day streak</div>
+    <button class="topbar-icon" onclick="navigate('calendar')" title="Calendar"><i class="ti ti-calendar"></i></button>
+    <div class="topbar-avatar" onclick="navigate('profile')" title="Profile">S</div>
+  </div>
+</header>
+
+<!-- ── MAIN ────────────────────────────────────────────── -->
+<main class="main-content">
+
+<!-- ════════════════════════════════════════════════════════
+     PAGE: DASHBOARD
+═════════════════════════════════════════════════════════ -->
+<div class="page active" id="page-dashboard">
+  <div style="margin-bottom:4px">
+    <div style="font-size:28px;font-weight:800;letter-spacing:-0.5px">Solomon.</div>
+    <div style="font-size:13px;color:var(--text3);margin-top:2px" id="dash-date"></div>
+  </div>
+  <div class="status-strip" id="dash-status" style="margin-top:10px"></div>
+
+  <div class="stat-row">
+    <div class="stat-card"><div class="stat-card-label">Total hours</div><div class="stat-card-value" id="s-hours">0</div><div class="stat-card-sub">all time</div></div>
+    <div class="stat-card"><div class="stat-card-label">Sessions this week</div><div class="stat-card-value" id="s-sessions">0</div><div class="stat-card-sub">logged</div></div>
+    <div class="stat-card"><div class="stat-card-label">Tracks</div><div class="stat-card-value" id="s-tracks">0</div><div class="stat-card-sub">in progress</div></div>
+    <div class="stat-card"><div class="stat-card-label">Current streak</div><div class="stat-card-value" id="s-streak">0</div><div class="stat-card-sub">days</div></div>
+  </div>
+
+  <div class="two-col" style="margin-bottom:24px">
+    <div class="card">
+      <div class="card-header"><span class="card-title">Track Progress</span></div>
+      <div class="card-body" id="track-progress-list"></div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Today</span>
+        <button class="btn btn-outline btn-sm" onclick="navigate('log')"><i class="ti ti-plus"></i> Log</button>
+      </div>
+      <div class="card-body" id="today-col"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><span class="card-title">Recent Activity</span><button class="btn btn-outline btn-sm" onclick="navigate('analytics')">View all</button></div>
+    <div class="card-body">
+      <div class="activity-scroll" id="recent-activity"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════
+     PAGE: TRACKS
+═════════════════════════════════════════════════════════ -->
+<div class="page" id="page-tracks">
+  <div class="page-header">
+    <div class="page-title">Tracks</div>
+    <button class="btn btn-primary" onclick="openAddTrack()"><i class="ti ti-plus"></i> New Track</button>
+  </div>
+
+  <div class="filter-bar">
+    <div class="filter-tabs">
+      <button class="filter-tab active" data-filter="all">All</button>
+      <button class="filter-tab" data-filter="active">Active</button>
+      <button class="filter-tab" data-filter="complete">Complete</button>
+    </div>
+    <div class="view-toggles">
+      <button class="view-toggle active" data-view="grid" title="Grid view"><i class="ti ti-layout-grid"></i></button>
+      <button class="view-toggle" data-view="list" title="List view"><i class="ti ti-list"></i></button>
+    </div>
+  </div>
+
+  <div id="tracks-container"></div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════
+     PAGE: TRACK VIEW
+═════════════════════════════════════════════════════════ -->
+<div class="page" id="page-track">
+  <!-- Drawer overlay -->
+  <div id="drawer-overlay" class="drawer-overlay" onclick="closeDrawer()"></div>
+  <div id="drawer" class="drawer">
+    <div class="drawer-header">
+      <span class="drawer-title">Contents</span>
+      <button onclick="closeDrawer()" style="color:var(--text3)"><i class="ti ti-x"></i></button>
+    </div>
+    <div id="drawer-body"></div>
+  </div>
+
+  <!-- Back + drawer toggle -->
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+    <button class="btn btn-outline btn-sm" onclick="navigate('tracks')"><i class="ti ti-arrow-left"></i> Tracks</button>
+    <button class="btn btn-outline btn-sm" onclick="openDrawer()"><i class="ti ti-menu-2"></i> Contents</button>
+  </div>
+
+  <!-- Hero -->
+  <div class="track-hero card" id="track-hero" style="margin-bottom:20px">
+    <div class="track-hero-content" style="display:flex;align-items:flex-start;justify-content:space-between;gap:20px">
+      <div style="display:flex;align-items:flex-start;gap:16px;flex:1">
+        <div style="font-size:48px;line-height:1" id="hero-icon"></div>
+        <div>
+          <div class="track-hero-label" id="hero-phase"></div>
+          <div class="track-hero-title" id="hero-name"></div>
+          <div style="margin-top:12px">
+            <div class="track-hero-pct" id="hero-pct"></div>
+            <div class="track-hero-bar" style="width:280px"><div class="track-hero-bar-fill" id="hero-bar-fill"></div></div>
+          </div>
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="navigate('log',{trackId:currentTrackId})"><i class="ti ti-player-play"></i> Continue</button>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" id="track-tab-overview" onclick="currentTrackTab='overview';renderTrackView()">Overview</button>
+    <button class="tab-btn" id="track-tab-progress" onclick="currentTrackTab='progress';renderTrackView()">Progress</button>
+    <button class="tab-btn" id="track-tab-log" onclick="currentTrackTab='log';renderTrackView()">Log</button>
+  </div>
+
+  <!-- Panels -->
+  <div class="track-tab-panel" id="track-panel-overview">
+    <div id="track-overview-body"></div>
+  </div>
+  <div class="track-tab-panel" id="track-panel-progress" style="display:none">
+    <div id="track-progress-body"></div>
+  </div>
+  <div class="track-tab-panel" id="track-panel-log" style="display:none">
+    <div style="display:flex;justify-content:flex-end;margin-bottom:14px">
+      <button class="btn btn-primary btn-sm" onclick="navigate('log')"><i class="ti ti-plus"></i> Add Session</button>
+    </div>
+    <div id="track-log-body"></div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════
+     PAGE: LOG SESSION
+═════════════════════════════════════════════════════════ -->
+<div class="page" id="page-log">
+  <div class="page-header"><div class="page-title">Log Session</div></div>
+
+  <div class="log-form">
+    <!-- Track -->
+    <div class="form-group">
+      <label class="form-label">Track</label>
+      <div class="track-pills" id="log-track-pills"></div>
+    </div>
+
+    <!-- Topic -->
+    <div class="form-group">
+      <label class="form-label">What did you work on?</label>
+      <input class="form-input" id="log-topic" placeholder="e.g. Python list comprehensions, Kali lab — Samba exploit">
+    </div>
+
+    <!-- Duration -->
+    <div class="form-group">
+      <label class="form-label">Duration (minutes)</label>
+      <div class="duration-row" style="margin-bottom:8px">
+        <button class="duration-quick" data-dur="30">30</button>
+        <button class="duration-quick" data-dur="45">45</button>
+        <button class="duration-quick" data-dur="60">60</button>
+        <button class="duration-quick" data-dur="90">90</button>
+        <button class="duration-quick" data-dur="120">120</button>
+      </div>
+      <input class="form-input" id="log-dur-input" type="number" placeholder="Or type custom minutes" style="width:220px">
+    </div>
+
+    <!-- Date -->
+    <div class="form-group">
+      <label class="form-label">Date</label>
+      <input class="form-input" id="log-date" type="date" style="width:200px">
+    </div>
+
+    <!-- Mastery -->
+    <div class="form-group">
+      <label class="form-label">Session quality / mastery (1–10)</label>
+      <div class="mastery-row">
+        <button class="mastery-btn" data-m="1">1</button>
+        <button class="mastery-btn" data-m="2">2</button>
+        <button class="mastery-btn" data-m="3">3</button>
+        <button class="mastery-btn" data-m="4">4</button>
+        <button class="mastery-btn" data-m="5">5</button>
+        <button class="mastery-btn" data-m="6">6</button>
+        <button class="mastery-btn" data-m="7">7</button>
+        <button class="mastery-btn" data-m="8">8</button>
+        <button class="mastery-btn" data-m="9">9</button>
+        <button class="mastery-btn" data-m="10">10</button>
+      </div>
+    </div>
+
+    <!-- Notes -->
+    <div class="form-group">
+      <label class="form-label">Notes</label>
+      <textarea class="form-input form-textarea" id="log-notes" placeholder="What did you cover? What clicked? What blocked you? What's next?"></textarea>
+    </div>
+
+    <!-- Milestone -->
+    <div class="form-group">
+      <div class="milestone-toggle">
+        <label class="toggle-switch">
+          <input type="checkbox" id="milestone-toggle-cb" onchange="toggleMilestoneInput()">
+          <span class="toggle-slider"></span>
+        </label>
+        <span style="font-size:13px;color:var(--text2)">Milestone reached?</span>
+      </div>
+      <div id="milestone-name-wrap" class="milestone-name-input">
+        <input class="form-input" id="milestone-name" placeholder="Name this milestone (e.g. Phase I — Python complete)" style="margin-top:10px">
+      </div>
+    </div>
+
+    <button class="btn btn-primary" style="width:100%;padding:12px;font-size:15px;justify-content:center" onclick="saveLog()">
+      <i class="ti ti-check"></i> Save Session
+    </button>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════
+     PAGE: ANALYTICS & REPORTS
+═════════════════════════════════════════════════════════ -->
+<div class="page" id="page-analytics">
+  <div class="page-header"><div class="page-title">Analytics & Reports</div></div>
+
+  <div class="stat-row" style="margin-bottom:20px">
+    <div class="stat-card"><div class="stat-card-label">Total hours</div><div class="stat-card-value" id="a-hours">0</div><div class="stat-card-sub">all time</div></div>
+    <div class="stat-card"><div class="stat-card-label">Avg session</div><div class="stat-card-value" id="a-avg">0</div><div class="stat-card-sub">minutes</div></div>
+    <div class="stat-card"><div class="stat-card-label">Most active track</div><div class="stat-card-value" id="a-best" style="font-size:16px;padding-top:4px">—</div></div>
+    <div class="stat-card"><div class="stat-card-label">Avg mastery</div><div class="stat-card-value" id="a-quality">—</div><div class="stat-card-sub">out of 10</div></div>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+    <div class="stat-card" style="flex:1;padding:12px 16px"><div class="stat-card-label">This week</div><div class="stat-card-value" id="a-week" style="font-size:20px">0h</div></div>
+  </div>
+
+  <div class="two-col" style="margin-bottom:16px">
+    <div class="analytics-panel">
+      <div class="analytics-panel-title">Hours by track</div>
+      <div id="hours-by-track"></div>
+    </div>
+    <div class="analytics-panel">
+      <div class="analytics-panel-title">Time split</div>
+      <div class="donut-wrap">
+        <svg id="donut-svg" width="120" height="120" viewBox="0 0 120 120" style="flex-shrink:0"></svg>
+        <div class="donut-legend" id="donut-legend"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="analytics-panel" style="margin-bottom:16px">
+    <div class="analytics-panel-title">Activity — last 91 days</div>
+    <div id="heatmap-container"></div>
+  </div>
+
+  <div class="two-col">
+    <div class="analytics-panel">
+      <div class="analytics-panel-title">This month</div>
+      <div style="font-size:32px;font-weight:800;margin-bottom:4px" id="streak-current">0</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:16px">day streak</div>
+      <div id="streak-calendar"></div>
+    </div>
+    <div class="analytics-panel">
+      <div class="analytics-panel-title">Milestones</div>
+      <div id="analytics-milestones"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════
+     PAGE: CALENDAR
+═════════════════════════════════════════════════════════ -->
+<div class="page" id="page-calendar">
+  <div class="calendar-controls">
+    <div class="page-title">Calendar</div>
+    <div class="calendar-nav">
+      <button class="calendar-nav-btn" onclick="calNav(-1)"><i class="ti ti-chevron-left"></i></button>
+      <div class="calendar-month-label" id="cal-month-label"></div>
+      <button class="calendar-nav-btn" onclick="calNav(1)"><i class="ti ti-chevron-right"></i></button>
+    </div>
+    <button class="btn btn-primary" onclick="openPlanSession()"><i class="ti ti-plus"></i> Plan Session</button>
+  </div>
+
+  <div class="calendar-grid">
+    <div class="calendar-day-header">Mon</div>
+    <div class="calendar-day-header">Tue</div>
+    <div class="calendar-day-header">Wed</div>
+    <div class="calendar-day-header">Thu</div>
+    <div class="calendar-day-header">Fri</div>
+    <div class="calendar-day-header">Sat</div>
+    <div class="calendar-day-header">Sun</div>
+    <div id="cal-grid" style="display:contents"></div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════
+     PAGE: RESOURCES
+═════════════════════════════════════════════════════════ -->
+<div class="page" id="page-resources">
+  <div class="page-header">
+    <div class="page-title">Resources</div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <input class="search-input" placeholder="Search resources…" oninput="renderResources()">
+      <button class="btn btn-primary" onclick="openAddResource()"><i class="ti ti-plus"></i> Add Resource</button>
+    </div>
+  </div>
+
+  <div class="resources-layout">
+    <div class="resources-sidebar" id="resources-sidebar"></div>
+    <div class="resource-cards" id="resource-cards"></div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════
+     PAGE: PROFILE
+═════════════════════════════════════════════════════════ -->
+<div class="page" id="page-profile">
+  <div class="profile-header">
+    <div class="profile-header-top">
+      <div class="profile-avatar">STA</div>
+      <div class="profile-info">
+        <div class="profile-name">your full name</div>
+        <div class="profile-meta">Smartan House, Ikorodu, Lagos · Self-directed researcher</div>
+        <div style="margin-top:8px"><span class="pill pill-red">Dangerous at 23</span></div>
+      </div>
+      <button class="btn btn-outline btn-sm" onclick="navigate('settings')"><i class="ti ti-settings"></i> Settings</button>
+    </div>
+    <div class="profile-stats">
+      <div class="profile-stat"><div class="profile-stat-value" id="p-hours">0</div><div class="profile-stat-label">Hours logged</div></div>
+      <div class="profile-stat"><div class="profile-stat-value" id="p-sessions">0</div><div class="profile-stat-label">Sessions</div></div>
+      <div class="profile-stat"><div class="profile-stat-value" id="p-milestones">0</div><div class="profile-stat-label">Milestones</div></div>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" id="ptab-mission" onclick="switchProfileTab('mission')">Mission</button>
+    <button class="tab-btn" id="ptab-tracks" onclick="switchProfileTab('tracks')">Tracks</button>
+    <button class="tab-btn" id="ptab-milestones" onclick="switchProfileTab('milestones')">Milestones</button>
+  </div>
+
+  <div class="profile-tab-panel" id="ppanel-mission"><div id="p-mission"></div></div>
+  <div class="profile-tab-panel" id="ppanel-tracks" style="display:none"><div id="p-tracks"></div></div>
+  <div class="profile-tab-panel" id="ppanel-milestones" style="display:none"><div id="p-milestones-list"></div></div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════
+     PAGE: SETTINGS
+═════════════════════════════════════════════════════════ -->
+<div class="page" id="page-settings">
+  <div class="page-header"><div class="page-title">Settings</div></div>
+
+  <div class="settings-grid">
+    <div class="settings-group">
+      <div class="settings-group-title">Appearance & Data</div>
+      <div class="settings-item">
+        <div><div class="settings-item-label">Dark mode</div><div class="settings-item-sub">Always on</div></div>
+        <span class="pill pill-red">Active</span>
+      </div>
+      <div class="settings-item">
+        <div><div class="settings-item-label">Accent colour</div><div class="settings-item-sub">MIVA red default</div></div>
+        <input type="color" value="#cc3333" style="width:36px;height:28px;border:1px solid var(--border);border-radius:4px;background:none;cursor:pointer">
+      </div>
+      <div class="settings-item">
+        <div><div class="settings-item-label">Export data</div><div class="settings-item-sub">Download all data as JSON</div></div>
+        <button class="btn btn-outline btn-sm" onclick="exportData()"><i class="ti ti-download"></i> Export</button>
+      </div>
+      <div class="settings-item">
+        <div><div class="settings-item-label">Clear all data</div><div class="settings-item-sub">Cannot be undone</div></div>
+        <button class="btn btn-outline btn-sm" style="color:#cc3333;border-color:#cc3333" onclick="clearData()"><i class="ti ti-trash"></i> Clear</button>
+      </div>
+    </div>
+
+    <div class="settings-group">
+      <div class="settings-group-title">Notifications</div>
+      <div class="settings-item">
+        <div><div class="settings-item-label">Daily reminder</div><div class="settings-item-sub">Remind me to log sessions</div></div>
+        <label class="toggle-switch"><input type="checkbox"><span class="toggle-slider"></span></label>
+      </div>
+      <div class="settings-item">
+        <div><div class="settings-item-label">Reminder time</div></div>
+        <input type="time" value="07:00" class="form-input" style="width:110px">
+      </div>
+      <div class="settings-item">
+        <div><div class="settings-item-label">Weekly review</div><div class="settings-item-sub">Sunday evening summary</div></div>
+        <label class="toggle-switch"><input type="checkbox"><span class="toggle-slider"></span></label>
+      </div>
+      <div class="settings-item">
+        <div><div class="settings-item-label">Streak alerts</div><div class="settings-item-sub">Warn when streak at risk</div></div>
+        <label class="toggle-switch"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+      </div>
+    </div>
+
+    <div class="settings-group" style="grid-column:span 2">
+      <div class="settings-group-title">About</div>
+      <div style="font-size:13px;color:var(--text3);line-height:1.7">
+        Smartan Varsity — version 1.0 · Built for your full name · Smartan House, Lagos, Nigeria<br>
+        Self-hosted. All data lives in your browser's local storage. Export regularly as backup.
+      </div>
+    </div>
+  </div>
+</div>
+
+</main><!-- /main-content -->
+</div><!-- /app -->
+
+<!-- ── TOAST ───────────────────────────────────────────── -->
+<div class="toast" id="toast"></div>
+
+<!-- ── MODALS ─────────────────────────────────────────── -->
+
+<!-- Add Track -->
+<div class="modal-overlay" id="add-track-modal">
+  <div class="modal">
+    <div class="modal-title">New Track</div>
+    <div class="form-group"><label class="form-label">Track name</label><input class="form-input" id="at-name" placeholder="e.g. Quantum Computing"></div>
+    <div class="form-group" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div><label class="form-label">Icon (emoji)</label><input class="form-input" id="at-icon" placeholder="⚛️" maxlength="2"></div>
+      <div><label class="form-label">Colour</label><input type="color" class="form-input" id="at-color" value="#3b82f6" style="height:40px;padding:4px"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Phase</label><input class="form-input" id="at-phase" placeholder="Phase I" value="Phase I"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('add-track-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveTrack()">Create Track</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Course -->
+<div class="modal-overlay" id="add-course-modal">
+  <div class="modal">
+    <div class="modal-title">Add Course</div>
+    <input type="hidden" id="ac-track-id">
+    <div class="form-group"><label class="form-label">Course name</label><input class="form-input" id="ac-name" placeholder="e.g. Python Fundamentals"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('add-course-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveCourse()">Add Course</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Module -->
+<div class="modal-overlay" id="add-module-modal">
+  <div class="modal">
+    <div class="modal-title">Add Module / Task</div>
+    <input type="hidden" id="am-track-id">
+    <input type="hidden" id="am-course-id">
+    <div class="form-group"><label class="form-label">Title</label><input class="form-input" id="am-title" placeholder="e.g. List comprehensions drill"></div>
+    <div class="form-group">
+      <label class="form-label">Type</label>
+      <select class="form-input" id="am-type">
+        <option value="reading">Reading</option>
+        <option value="video">Video</option>
+        <option value="drill">Drill</option>
+        <option value="project">Project</option>
+        <option value="assessment">Assessment</option>
+        <option value="note">Note</option>
+      </select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('add-module-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveModule()">Add Module</button>
+    </div>
+  </div>
+</div>
+
+<!-- Plan Session -->
+<div class="modal-overlay" id="plan-modal">
+  <div class="modal">
+    <div class="modal-title">Plan Session</div>
+    <div class="form-group"><label class="form-label">Track</label><select class="form-input" id="ps-track"></select></div>
+    <div class="form-group"><label class="form-label">Topic / goal</label><input class="form-input" id="ps-topic" placeholder="e.g. Linear algebra — vectors"></div>
+    <div class="form-group" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div><label class="form-label">Date</label><input class="form-input" id="ps-date" type="date"></div>
+      <div><label class="form-label">Time</label><input class="form-input" id="ps-time" type="time" value="09:00"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Duration (mins)</label><input class="form-input" id="ps-duration" type="number" placeholder="90" value="90" style="width:120px"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('plan-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="savePlanSession()">Plan Session</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Resource -->
+<div class="modal-overlay" id="add-resource-modal">
+  <div class="modal">
+    <div class="modal-title">Add Resource</div>
+    <div class="form-group"><label class="form-label">Title</label><input class="form-input" id="ar-title" placeholder="e.g. Molecular Biology of the Cell"></div>
+    <div class="form-group" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div>
+        <label class="form-label">Type</label>
+        <select class="form-input" id="ar-type">
+          <option>Article</option><option>Video</option><option>Book</option><option>Tool</option><option>Paper</option><option>Course</option>
+        </select>
+      </div>
+      <div><label class="form-label">Track</label><select class="form-input" id="ar-track"></select></div>
+    </div>
+    <div class="form-group"><label class="form-label">URL (optional)</label><input class="form-input" id="ar-url" placeholder="https://"></div>
+    <div class="form-group"><label class="form-label">Your notes</label><textarea class="form-input form-textarea" id="ar-notes" placeholder="Why this resource, what to focus on…" style="min-height:72px"></textarea></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('add-resource-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveResource()">Save Resource</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── SCRIPTS ─────────────────────────────────────────── -->
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+<script>
+  // Set today's date in dashboard
+  document.getElementById('dash-date').textContent = new Date().toLocaleDateString('en-GB', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
+
+  // Analytics milestones panel
+  function renderAnalyticsMilestones() {
+    const el = document.getElementById('analytics-milestones');
+    if (!el) return;
+    const ms = [...DB.milestones].sort((a,b) => b.date.localeCompare(a.date)).slice(0,5);
+    el.innerHTML = ms.length ? ms.map(m => {
+      const t = getTrack(m.trackId);
+      return `<div class="milestone-item">
+        <div class="milestone-dot" style="background:${t?.color||'var(--red)'}"></div>
+        <div class="milestone-info"><div class="milestone-name" style="font-size:12px">${m.name}</div><div class="milestone-meta">${t?.icon||''} ${t?.name||''}</div></div>
+        <div class="milestone-date">${formatDate(m.date)}</div>
+      </div>`;
+    }).join('') : '<div class="empty-state" style="padding:20px"><i class="ti ti-trophy"></i>No milestones yet.</div>';
+  }
+
+  // Patch renderAnalytics to also render milestones panel
+  const _origRA = renderAnalytics;
+  window.renderAnalytics = function() { _origRA(); renderAnalyticsMilestones(); };
+
+  // Close modals on overlay click
+  document.querySelectorAll('.modal-overlay').forEach(overlay => {
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.remove('open'); });
+  });
+
+  // Keyboard ESC closes modals
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      document.querySelectorAll('.modal-overlay.open').forEach(m => m.classList.remove('open'));
+      closeDrawer();
+    }
+  });
+</script>
+</body>
+</html>

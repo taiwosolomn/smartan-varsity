@@ -1,0 +1,240 @@
+// ─── DATA STORE ──────────────────────────────────────────
+const DB_KEY = 'smartan_varsity_v1';
+
+const DEFAULT_DATA = {
+  profile: {
+    name: 'Solomon',
+    fullName: 'your full name',
+    mission: 'Dangerous at 23.',
+    goals: [
+      { text: 'Run 10KM sub-25 minutes', target: 'Dec 2026' },
+      { text: 'Complete Tesseract Phase I', target: 'Sep 2026' },
+      { text: 'Publish first A.L.I.E.N. paper', target: 'Dec 2026' },
+      { text: 'CTRL Room: 5,000 members', target: 'Dec 2026' },
+    ],
+    project: 'Tesseract — AI-native autonomous cybersecurity platform. The first A.L.I.E.N. prototype organism.',
+  },
+  tracks: [
+    {
+      id: 't1', name: 'AI + Machine Learning', icon: '🧠', color: '#3b82f6', phase: 'Phase I',
+      courses: [
+        { id: 'c1', name: 'Python Fundamentals', modules: [
+          { id: 'm1', title: 'Variables, types, control flow', type: 'reading', status: 'done' },
+          { id: 'm2', title: 'Functions and scope', type: 'drill', status: 'done' },
+          { id: 'm3', title: 'List comprehensions and generators', type: 'drill', status: 'inprogress' },
+          { id: 'm4', title: 'OOP basics', type: 'reading', status: 'todo' },
+          { id: 'm5', title: 'Error handling', type: 'reading', status: 'todo' },
+          { id: 'm6', title: 'Build: mini CLI tool', type: 'project', status: 'todo' },
+        ]},
+        { id: 'c2', name: 'NumPy & Pandas', modules: [
+          { id: 'm7', title: 'Array operations', type: 'reading', status: 'todo' },
+          { id: 'm8', title: 'DataFrame manipulation', type: 'drill', status: 'todo' },
+          { id: 'm9', title: '100 NumPy exercises', type: 'assessment', status: 'todo' },
+        ]},
+        { id: 'c3', name: 'LLM API Use', modules: [
+          { id: 'm10', title: 'Anthropic API basics', type: 'reading', status: 'todo' },
+          { id: 'm11', title: 'Build: first Claude integration', type: 'project', status: 'todo' },
+        ]},
+      ]
+    },
+    {
+      id: 't2', name: 'Cybersecurity', icon: '🛡️', color: '#cc3333', phase: 'Phase I',
+      courses: [
+        { id: 'c4', name: 'Networking Fundamentals', modules: [
+          { id: 'm12', title: 'OSI model and TCP/IP', type: 'reading', status: 'done' },
+          { id: 'm13', title: 'Routing and switching', type: 'reading', status: 'done' },
+          { id: 'm14', title: 'DNS, HTTP, TLS', type: 'reading', status: 'inprogress' },
+          { id: 'm15', title: 'Wireshark lab', type: 'drill', status: 'todo' },
+        ]},
+        { id: 'c5', name: 'Linux CLI', modules: [
+          { id: 'm16', title: 'File system navigation', type: 'drill', status: 'done' },
+          { id: 'm17', title: 'Permissions and processes', type: 'drill', status: 'inprogress' },
+          { id: 'm18', title: 'Shell scripting basics', type: 'project', status: 'todo' },
+        ]},
+        { id: 'c6', name: 'Kali Linux Lab', modules: [
+          { id: 'm19', title: 'Metasploitable 2 setup', type: 'drill', status: 'done' },
+          { id: 'm20', title: 'Port scanning with nmap', type: 'drill', status: 'done' },
+          { id: 'm21', title: 'Exploiting vsftpd 2.3.4', type: 'drill', status: 'inprogress' },
+          { id: 'm22', title: 'Samba exploitation', type: 'drill', status: 'todo' },
+          { id: 'm23', title: 'Write recon report', type: 'project', status: 'todo' },
+        ]},
+      ]
+    },
+    {
+      id: 't3', name: 'Mathematics', icon: '📐', color: '#10b981', phase: 'Phase I',
+      courses: [
+        { id: 'c7', name: 'Linear Algebra', modules: [
+          { id: 'm24', title: 'Vectors and dot products', type: 'reading', status: 'todo' },
+          { id: 'm25', title: 'Matrix operations', type: 'drill', status: 'todo' },
+          { id: 'm26', title: 'Eigenvalues', type: 'reading', status: 'todo' },
+        ]},
+        { id: 'c8', name: 'Information Theory', modules: [
+          { id: 'm27', title: 'Entropy and Shannon', type: 'reading', status: 'todo' },
+          { id: 'm28', title: 'Compression basics', type: 'reading', status: 'todo' },
+        ]},
+      ]
+    },
+    {
+      id: 't4', name: 'Biology', icon: '🧬', color: '#f59e0b', phase: 'Phase I',
+      courses: [
+        { id: 'c9', name: 'Molecular Biology of the Cell', modules: [
+          { id: 'm29', title: 'Cell signalling — Ch.15', type: 'reading', status: 'todo' },
+          { id: 'm30', title: 'Immune system — Ch.24', type: 'reading', status: 'todo' },
+          { id: 'm31', title: 'Developmental biology — Ch.22', type: 'reading', status: 'todo' },
+        ]},
+        { id: 'c10', name: 'Complex Systems', modules: [
+          { id: 'm32', title: 'Melanie Mitchell — Complexity', type: 'reading', status: 'todo' },
+          { id: 'm33', title: 'Santa Fe Institute online course', type: 'video', status: 'todo' },
+        ]},
+      ]
+    },
+    {
+      id: 't5', name: 'Build + Projects', icon: '⚙️', color: '#8b5cf6', phase: 'Phase I',
+      courses: [
+        { id: 'c11', name: 'FastAPI', modules: [
+          { id: 'm34', title: 'Routing and request handling', type: 'reading', status: 'done' },
+          { id: 'm35', title: 'Pydantic models', type: 'reading', status: 'done' },
+          { id: 'm36', title: 'Auth with JWT', type: 'reading', status: 'inprogress' },
+          { id: 'm37', title: 'Deploy to Railway', type: 'project', status: 'todo' },
+        ]},
+        { id: 'c12', name: 'ThreatRadar', modules: [
+          { id: 'm38', title: 'CVE API integration', type: 'project', status: 'done' },
+          { id: 'm39', title: 'LLM digest generation', type: 'project', status: 'inprogress' },
+          { id: 'm40', title: 'Newsletter output', type: 'project', status: 'todo' },
+        ]},
+        { id: 'c13', name: 'LogSense', modules: [
+          { id: 'm41', title: 'Log ingestion pipeline', type: 'project', status: 'inprogress' },
+          { id: 'm42', title: 'Anomaly detection model', type: 'project', status: 'todo' },
+          { id: 'm43', title: 'Alert system', type: 'project', status: 'todo' },
+        ]},
+      ]
+    },
+  ],
+  logs: [
+    { id: 'l1', trackId: 't2', topic: 'Port scanning with nmap — 23 open ports on Metasploitable', duration: 90, date: today(), rating: 9, notes: 'vsftpd backdoor on port 21. Crazy how exposed this box is. Raw root shell on 1524.', milestone: null },
+    { id: 'l2', trackId: 't1', topic: 'List comprehensions and generators', duration: 85, date: today(), rating: 8, notes: 'Generators clicked finally. Still slow on nested comprehensions.', milestone: null },
+    { id: 'l3', trackId: 't5', topic: 'CVE API integration for ThreatRadar', duration: 120, date: yesterday(), rating: 8, notes: 'NVD API rate limiting is annoying. Workaround working.', milestone: null },
+    { id: 'l4', trackId: 't2', topic: 'Linux permissions deep dive', duration: 60, date: yesterday(), rating: 7, notes: 'chmod, chown, SUID bits. Need to drill this more.', milestone: null },
+    { id: 'l5', trackId: 't5', topic: 'FastAPI JWT auth', duration: 75, date: daysAgo(2), rating: 8, notes: null, milestone: null },
+  ],
+  calendar: [
+    { id: 'ev1', trackId: 't1', topic: 'Python — OOP basics', date: today(), time: '07:00', duration: 90 },
+    { id: 'ev2', trackId: 't2', topic: 'Kali Lab — Samba exploit', date: today(), time: '19:00', duration: 60 },
+    { id: 'ev3', trackId: 't3', topic: 'Linear algebra — vectors', date: tomorrow(), time: '07:00', duration: 90 },
+  ],
+  resources: [
+    { id: 'r1', title: 'Molecular Biology of the Cell — Alberts', type: 'Book', trackId: 't4', url: '', notes: 'Priority: cell signalling + immune system chapters', added: daysAgo(5) },
+    { id: 'r2', title: 'Computer Networking: A Top-Down Approach', type: 'Book', trackId: 't2', url: '', notes: 'Kurose & Ross 8th ed. Priority chapters 1-5, 8', added: daysAgo(10) },
+    { id: 'r3', title: 'NVD CVE API Docs', type: 'Article', trackId: 't5', url: 'https://nvd.nist.gov/developers/vulnerabilities', notes: 'Rate limit: 5 req/30s without key', added: daysAgo(3) },
+    { id: 'r4', title: 'LangGraph Documentation', type: 'Tool', trackId: 't1', url: 'https://langchain-ai.github.io/langgraph/', notes: 'For Tesseract agentic layer', added: daysAgo(7) },
+    { id: 'r5', title: 'Complexity: A Guided Tour — Melanie Mitchell', type: 'Book', trackId: 't4', url: '', notes: 'Best entry point to CAS before primary papers', added: daysAgo(2) },
+  ],
+  milestones: [
+    { id: 'ms1', trackId: 't2', name: 'First Kali lab session — 23 ports discovered', date: daysAgo(14) },
+    { id: 'ms2', trackId: 't5', name: 'ThreatRadar CVE API integrated', date: daysAgo(4) },
+  ],
+  settings: {
+    accentColor: '#cc3333',
+    dailyReminder: false,
+    reminderTime: '07:00',
+    weeklyReview: false,
+    streakNotif: true,
+  }
+};
+
+function today() { return new Date().toISOString().slice(0,10); }
+function yesterday() { const d = new Date(); d.setDate(d.getDate()-1); return d.toISOString().slice(0,10); }
+function tomorrow() { const d = new Date(); d.setDate(d.getDate()+1); return d.toISOString().slice(0,10); }
+function daysAgo(n) { const d = new Date(); d.setDate(d.getDate()-n); return d.toISOString().slice(0,10); }
+
+// ─── STATE ───────────────────────────────────────────────
+let DB = JSON.parse(localStorage.getItem(DB_KEY) || 'null') || DEFAULT_DATA;
+function save() { localStorage.setItem(DB_KEY, JSON.stringify(DB)); }
+
+// ─── HELPERS ─────────────────────────────────────────────
+function uid() { return '_' + Math.random().toString(36).slice(2,9); }
+
+function getTrack(id) { return DB.tracks.find(t => t.id === id); }
+
+function trackProgress(track) {
+  let total = 0, done = 0;
+  track.courses.forEach(c => {
+    total += c.modules.length;
+    done += c.modules.filter(m => m.status === 'done').length;
+  });
+  return { total, done, pct: total ? Math.round(done/total*100) : 0 };
+}
+
+function courseProgress(course) {
+  const total = course.modules.length;
+  const done = course.modules.filter(m => m.status === 'done').length;
+  return { total, done, pct: total ? Math.round(done/total*100) : 0 };
+}
+
+function calcStreak() {
+  const dates = [...new Set(DB.logs.map(l => l.date))].sort().reverse();
+  if (!dates.length) return 0;
+  let streak = 0;
+  let cur = today();
+  for (const d of dates) {
+    if (d === cur) {
+      streak++;
+      const dt = new Date(cur);
+      dt.setDate(dt.getDate()-1);
+      cur = dt.toISOString().slice(0,10);
+    } else if (d < cur) break;
+  }
+  return streak;
+}
+
+function hoursThisMonth() {
+  const now = new Date();
+  const monthKey = now.toISOString().slice(0,7);
+  return DB.logs.filter(l => l.date.startsWith(monthKey)).reduce((a,l) => a + l.duration, 0) / 60;
+}
+
+function sessionsThisWeek() {
+  const now = new Date();
+  const day = now.getDay() || 7;
+  const monday = new Date(now); monday.setDate(now.getDate() - day + 1);
+  const mKey = monday.toISOString().slice(0,10);
+  return DB.logs.filter(l => l.date >= mKey).length;
+}
+
+function totalHours() {
+  return (DB.logs.reduce((a,l) => a + l.duration, 0) / 60).toFixed(1);
+}
+
+function activeTracksCount() {
+  return DB.tracks.filter(t => {
+    const logs = DB.logs.filter(l => l.trackId === t.id);
+    return logs.length > 0;
+  }).length;
+}
+
+function avgMastery() {
+  const rated = DB.logs.filter(l => l.rating);
+  if (!rated.length) return '—';
+  return (rated.reduce((a,l) => a+l.rating, 0) / rated.length).toFixed(1);
+}
+
+function typeIcon(type) {
+  const map = { reading: 'ti-book', video: 'ti-player-play', drill: 'ti-bolt', project: 'ti-tools', assessment: 'ti-checkbox', note: 'ti-pencil' };
+  return map[type] || 'ti-file';
+}
+
+function statusLabel(status) {
+  if (status === 'done') return '<span class="task-status done">✓ Done</span>';
+  if (status === 'inprogress') return '<span class="task-status inprogress">In progress</span>';
+  return '<span class="task-status todo">To do</span>';
+}
+
+function formatDate(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00');
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function trackColorStyle(trackId) {
+  const t = getTrack(trackId);
+  return t ? t.color : '#666';
+}
