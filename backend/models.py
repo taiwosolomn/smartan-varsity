@@ -3,7 +3,7 @@ import uuid
 from sqlalchemy import Column, String, Integer, Boolean, DateTime, ForeignKey, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
-from backend.database import Base
+from database import Base
 
 
 class User(Base):

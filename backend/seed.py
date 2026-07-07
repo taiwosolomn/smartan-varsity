@@ -1,8 +1,8 @@
 import json
 import os
 from sqlalchemy.orm import Session
-from backend.models import User, Track, Course, Module, SessionLog, Milestone, CalendarEvent, Resource, Settings
-from backend.auth import hash_password
+from models import User, Track, Course, Module, SessionLog, Milestone, CalendarEvent, Resource, Settings
+from auth import hash_password
 
 def seed_db(db: Session):
     # Check if we already have data

@@ -11,9 +11,9 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, case
 from sqlalchemy.orm import joinedload, selectinload
 
-from backend.database import engine, get_db, Base
-from backend.models import User, Track, Course, Module, SessionLog, Milestone, CalendarEvent, Resource, Settings
-from backend.schemas import (
+from database import engine, get_db, Base
+from models import User, Track, Course, Module, SessionLog, Milestone, CalendarEvent, Resource, Settings
+from schemas import (
     UserCreate, UserResponse, UserProfileUpdate, SettingsResponse, SettingsUpdate,
     TrackCreate, TrackUpdate, TrackResponse, TrackDetailResponse, TrackReorderList,
     CourseCreate, CourseUpdate, CourseResponse, CourseReorderList,
@@ -22,7 +22,7 @@ from backend.schemas import (
     CalendarEventCreate, CalendarEventResponse, ResourceCreate, ResourceResponse,
     ChangeEmailRequest, ChangeUsernameRequest, ChangePasswordRequest, ProfileCreate
 )
-from backend.auth import get_current_user, get_token_payload, get_current_admin
+from auth import get_current_user, get_token_payload, get_current_admin
 
 # Create all tables on startup (idempotent — safe to run every time)
 # PostgreSQL: all columns are defined in models.py — no ALTER TABLE migrations needed
