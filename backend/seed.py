@@ -151,7 +151,7 @@ def seed_db(db: Session):
     print("Database seeding completed.")
 
 if __name__ == "__main__":
-    from backend.database import SessionLocal
+    from database import SessionLocal
     db = SessionLocal()
     try:
         seed_db(db)

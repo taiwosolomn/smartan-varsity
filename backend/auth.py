@@ -226,7 +226,7 @@ def get_current_user(
             db.commit()
             
             # Create default settings
-            from backend.models import Settings
+            from models import Settings
             settings = Settings(userId=user_id)
             db.add(settings)
             db.commit()

@@ -82,7 +82,7 @@ def hex_to_hsl(hex_str: str):
 @app.on_event("startup")
 def startup_event():
     from sqlalchemy import text
-    from backend.database import SessionLocal
+    from database import SessionLocal
     db_mig = SessionLocal()
     # resources migrations
     try:
@@ -162,7 +162,7 @@ def startup_event():
 
     # Backfill HSL and username values for any existing records
     try:
-        from backend.models import Track, User
+        from models import Track, User
         tracks_to_backfill = db_mig.query(Track).filter(Track.hslHue == None).all()
         if tracks_to_backfill:
             for t in tracks_to_backfill:
@@ -1218,7 +1218,7 @@ def create_log(log_in: SessionLogCreate, current_user: User = Depends(get_curren
         db.add(milestone)
         
         # Log milestone to activity_log
-        from backend.models import ActivityLog
+        from models import ActivityLog
         db.add(ActivityLog(
             user_id=current_user.id,
             actor_id=current_user.id,
@@ -1228,7 +1228,7 @@ def create_log(log_in: SessionLogCreate, current_user: User = Depends(get_curren
         ))
         
     # Log session to activity_log
-    from backend.models import ActivityLog
+    from models import ActivityLog
     db.add(ActivityLog(
         user_id=current_user.id,
         actor_id=current_user.id,
@@ -1440,7 +1440,7 @@ def check_resource_link(resource_id: str, url: str):
         except Exception:
             status = "broken"
             
-    from backend.database import SessionLocal
+    from database import SessionLocal
     new_db = SessionLocal()
     try:
         db_res = new_db.query(Resource).filter(Resource.id == resource_id).first()
@@ -2003,7 +2003,7 @@ router_admin = APIRouter(prefix="/admin", tags=["Admin Panel"])
 
 @router_admin.get("/dashboard")
 def get_admin_dashboard(current_admin: User = Depends(get_current_admin), db: Session = Depends(get_db)):
-    from backend.models import SessionLog, User, ActivityLog, EngagementFlagAcknowledgement
+    from models import SessionLog, User, ActivityLog, EngagementFlagAcknowledgement
     import datetime
 
     today_dt = datetime.date.today()
@@ -2190,7 +2190,7 @@ def get_admin_dashboard(current_admin: User = Depends(get_current_admin), db: Se
 
 @router_admin.post("/engagement-flags/{smartan_id}/acknowledge")
 def acknowledge_flag(smartan_id: str, payload: dict, current_admin: User = Depends(get_current_admin), db: Session = Depends(get_db)):
-    from backend.models import EngagementFlagAcknowledgement
+    from models import EngagementFlagAcknowledgement
     import datetime
 
     flag_type = payload.get("flag_type")
@@ -2219,7 +2219,7 @@ def acknowledge_flag(smartan_id: str, payload: dict, current_admin: User = Depen
 
 @router_admin.get("/smartans")
 def get_admin_smartans(current_admin: User = Depends(get_current_admin), db: Session = Depends(get_db)):
-    from backend.models import SessionLog, User
+    from models import SessionLog, User
     import datetime
 
     latest_sessions = db.query(
@@ -2251,7 +2251,7 @@ def get_admin_smartan_detail(
     current_admin: User = Depends(get_current_admin), 
     db: Session = Depends(get_db)
 ):
-    from backend.models import User, ActivityLog, Milestone, SessionLog, Track
+    from models import User, ActivityLog, Milestone, SessionLog, Track
     user = db.query(User).filter(User.id == id, User.role == "smartan").first()
     if not user:
         raise HTTPException(404, "Smartan not found")
@@ -2347,7 +2347,7 @@ def get_admin_smartan_detail(
 
 @router_admin.post("/smartans/{id}/deactivate")
 def deactivate_smartan(id: str, current_admin: User = Depends(get_current_admin), db: Session = Depends(get_db)):
-    from backend.models import User, ActivityLog
+    from models import User, ActivityLog
     import datetime
 
     user = db.query(User).filter(User.id == id, User.role == "smartan").first()
@@ -2368,7 +2368,7 @@ def deactivate_smartan(id: str, current_admin: User = Depends(get_current_admin)
 
 @router_admin.post("/smartans/{id}/reactivate")
 def reactivate_smartan(id: str, current_admin: User = Depends(get_current_admin), db: Session = Depends(get_db)):
-    from backend.models import User, ActivityLog
+    from models import User, ActivityLog
 
     user = db.query(User).filter(User.id == id, User.role == "smartan").first()
     if not user:
@@ -2388,7 +2388,7 @@ def reactivate_smartan(id: str, current_admin: User = Depends(get_current_admin)
 
 @router_admin.post("/smartans/{id}/reset-password")
 def reset_smartan_password(id: str, current_admin: User = Depends(get_current_admin), db: Session = Depends(get_db)):
-    from backend.models import User, ActivityLog
+    from models import User, ActivityLog
     import urllib.request
     import json
 
@@ -2422,7 +2422,7 @@ def reset_smartan_password(id: str, current_admin: User = Depends(get_current_ad
 
 @router_admin.get("/leaderboard")
 def get_admin_leaderboard(metric: str = "hours", scope: str = "all_time", current_admin: User = Depends(get_current_admin), db: Session = Depends(get_db)):
-    from backend.models import User, SessionLog
+    from models import User, SessionLog
     import datetime
 
     today_dt = datetime.date.today()
@@ -2502,7 +2502,7 @@ def get_admin_analytics(
     current_admin: User = Depends(get_current_admin), 
     db: Session = Depends(get_db)
 ):
-    from backend.models import User, SessionLog, Track, Module
+    from models import User, SessionLog, Track, Module
     import datetime
 
     since_date = None
@@ -2742,7 +2742,7 @@ def get_admin_analytics(
 
 @router_admin.post("/notifications")
 def send_admin_notification(payload: dict, current_admin: User = Depends(get_current_admin), db: Session = Depends(get_db)):
-    from backend.models import Notification, ActivityLog
+    from models import Notification, ActivityLog
 
     message = payload.get("message")
     recipient_id = payload.get("recipient_id")  # nullable
@@ -2771,7 +2771,7 @@ def send_admin_notification(payload: dict, current_admin: User = Depends(get_cur
 
 @router_admin.get("/profile")
 def get_admin_profile(current_admin: User = Depends(get_current_admin), db: Session = Depends(get_db)):
-    from backend.models import User, EngagementFlagAcknowledgement, Notification, ActivityLog
+    from models import User, EngagementFlagAcknowledgement, Notification, ActivityLog
 
     smartans_overseen = db.query(User).filter(User.role == "smartan").count()
     flags_resolved = db.query(EngagementFlagAcknowledgement).filter(EngagementFlagAcknowledgement.admin_id == current_admin.id).count()
@@ -2832,7 +2832,7 @@ def edit_admin_profile(payload: dict, current_admin: User = Depends(get_current_
 
 @router_admin.get("/smartans/{id}/tracks/{track_id}")
 def get_admin_student_track_detail(id: str, track_id: str, current_admin: User = Depends(get_current_admin), db: Session = Depends(get_db)):
-    from backend.models import Track
+    from models import Track
     user = db.query(User).filter(User.id == id, User.role == "smartan").first()
     if not user:
         raise HTTPException(404, "Smartan not found")
@@ -2846,7 +2846,7 @@ def get_admin_student_track_detail(id: str, track_id: str, current_admin: User =
 
 @router_admin.get("/smartans/{id}/sessions")
 def get_admin_student_sessions(id: str, current_admin: User = Depends(get_current_admin), db: Session = Depends(get_db)):
-    from backend.models import SessionLog, Track
+    from models import SessionLog, Track
     user = db.query(User).filter(User.id == id, User.role == "smartan").first()
     if not user:
         raise HTTPException(404, "Smartan not found")
@@ -2865,7 +2865,7 @@ router_notifications = APIRouter(prefix="/notifications", tags=["Notifications"]
 
 @router_notifications.get("")
 def get_user_notifications(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    from backend.models import Notification, NotificationRead
+    from models import Notification, NotificationRead
     from sqlalchemy import or_
 
     # Get all notifications (broadcast or targeted to this user)
@@ -2891,7 +2891,7 @@ def get_user_notifications(current_user: User = Depends(get_current_user), db: S
 
 @router_notifications.post("/{id}/read")
 def mark_notification_read(id: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    from backend.models import NotificationRead
+    from models import NotificationRead
     import datetime
 
     read_log = db.query(NotificationRead).filter(
