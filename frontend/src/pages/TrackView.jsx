@@ -6,7 +6,8 @@ import TrackIconRenderer from '../components/TrackIconRenderer.jsx';
 import { 
   IconArrowLeft, IconMenu2, IconPlayerPlay, IconChevronDown, 
   IconPlus, IconDotsVertical, IconX, IconRefresh, IconTrophy, IconTrash,
-  IconBook, IconBolt, IconTools, IconCheckbox, IconPencil, IconFile, IconUpload
+  IconBook, IconBolt, IconTools, IconCheckbox, IconPencil, IconFile, IconUpload,
+  IconCalendar
 } from '@tabler/icons-react';
 
 import { useCustomDialog } from '../App';
@@ -663,7 +664,7 @@ export default function TrackView() {
                   <div>
                     <h3 className="course-card-title">{course.name}</h3>
                     <div className="course-card-meta">
-                      {cp.done} of {cp.total} modules complete
+                      {cp.done} of {cp.total} modules complete {course.deadline && ` · Due ${new Date(course.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })}`}
                     </div>
                     <div className="phbar" style={{ width: '140px', marginTop: '6px' }}>
                       <div className="progress-fill" style={{ width: `${cp.pct}%`, background: track.color }}></div>
@@ -728,7 +729,35 @@ export default function TrackView() {
                           </div>
                           
                           <div className="module-row-info">
-                            <div className="module-row-title">{m.title}</div>
+                            <div className="module-row-title" style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+                              {m.deadline && (
+                                <span 
+                                  style={{
+                                    font: '800 11px Urbanist',
+                                    color: 'var(--accent, #E5A83C)',
+                                    background: 'rgba(229, 168, 60, 0.08)',
+                                    border: '1px solid rgba(229, 168, 60, 0.18)',
+                                    borderRadius: '4px',
+                                    padding: '2px 6px',
+                                    marginRight: '4px',
+                                    textTransform: 'uppercase',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '3px',
+                                    flexShrink: 0
+                                  }}
+                                >
+                                  <IconCalendar size={10} />
+                                  {m.day ? `${m.day.slice(0, 3)}, ` : ''}
+                                  {new Date(m.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })}
+                                </span>
+                              )}
+                              <span>
+                                {m.deadline
+                                  ? m.title.replace(/^(Mon|Tue|Wed|Thu|Fri|Sat|Sun|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\s*[-•|:—]?\s*/i, '')
+                                  : m.title}
+                              </span>
+                            </div>
                             <div className="module-row-type">{m.type}</div>
                           </div>
                         </div>

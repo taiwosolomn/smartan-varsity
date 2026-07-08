@@ -138,7 +138,8 @@ export default function ReviewCurriculum() {
         const res = await api.get(`/curriculum-imports/${importId}`);
         const d = res.data;
         setImportData(d);
-        const liveJson = d.edited_json || d.raw_json;
+        // Backend resolves edited_json vs raw_json and returns the merged result as json_data
+        const liveJson = d.json_data;
         setCurriculum(liveJson);
         setErrors(d.validation_errors || []);
 

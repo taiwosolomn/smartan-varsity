@@ -3,6 +3,10 @@ import api from '../api';
 import { supabase } from '../supabaseClient';
 import { useSettings, useAuth, useCustomDialog } from '../App';
 import { getFirstName } from '../utils/nameHelper';
+import {
+  IconUser, IconBell, IconPalette, IconLock, IconAlertTriangle,
+  IconKey, IconCheck, IconX, IconEye, IconEyeOff
+} from '@tabler/icons-react';
 
 export default function Settings() {
   const { settings, refreshSettings, theme, setTheme } = useSettings();

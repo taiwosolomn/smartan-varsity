@@ -1,6 +1,6 @@
 from pydantic import BaseModel, EmailStr, Field
 from typing import List, Optional, Any
-from datetime import datetime
+from datetime import datetime, date
 
 # --- AUTH SCHEMAS ---
 class Token(BaseModel):
@@ -106,6 +106,11 @@ class ModuleResponse(BaseModel):
     order: int
     notes: Optional[str] = None
     completedAt: Optional[datetime] = None
+    deadline: Optional[date] = None
+    day: Optional[str] = None
+    task: Optional[str] = None
+    description: Optional[str] = None
+    due_by_week: Optional[int] = None
 
     class Config:
         from_attributes = True
@@ -124,6 +129,10 @@ class CourseResponse(BaseModel):
     name: str
     order: int
     modules: List[ModuleResponse] = []
+    deadline: Optional[date] = None
+    deliverable: Optional[str] = None
+    spans_weeks: Optional[int] = None
+    reference: Optional[str] = None
 
     class Config:
         from_attributes = True
