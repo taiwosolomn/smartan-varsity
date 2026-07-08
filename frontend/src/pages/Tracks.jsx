@@ -452,7 +452,7 @@ export default function Tracks() {
             A new lane in your grind. Name it, mark it, run it.
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+        <div className="header-actions-wrap" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
           <button className="ghostpill" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', padding: '8px 16px', font: '800 13px Urbanist', cursor: 'pointer' }} onClick={() => setIsPushModalOpen(true)}>
             <IconCalendar size={15} />
             <span>Push schedule</span>

@@ -263,7 +263,7 @@ export default function ImportCurriculum() {
       {uploading && <ReviewSkeleton />}
 
       {/* Actions */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '24px' }}>
+      <div className="import-actions-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '24px' }}>
         <button
           className="ghostpill"
           style={{ fontSize: '13px', cursor: 'pointer' }}

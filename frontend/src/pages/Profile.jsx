@@ -355,7 +355,7 @@ export default function Profile() {
       {/* ── MAIN HEADER CARD ─────────────────────────────────── */}
       <div className="card" style={{ padding: '36px 40px', display: 'flex', flexDirection: 'column', gap: '28px' }}>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div className="profile-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           {/* Avatar + details */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '22px' }}>
             {/* Clickable avatar */}
@@ -433,7 +433,7 @@ export default function Profile() {
         </div>
 
         {/* Stats row – inline */}
-        <div style={{ display: 'flex', gap: '44px' }}>
+        <div className="profile-stats-row" style={{ display: 'flex', gap: '44px' }}>
           {STATS.map((stat, i) => (
             <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
               <span style={{ font: '900 21px/1.1 Urbanist', color: 'var(--text)' }}>{stat.value}</span>
@@ -446,7 +446,7 @@ export default function Profile() {
       </div>
 
       {/* ── TABS BAR ──────────────────────────────────────────── */}
-      <div style={{ display: 'flex', borderBottom: '1.5px solid var(--input-border)', paddingLeft: '2px' }}>
+      <div className="profile-tabs-bar" style={{ display: 'flex', borderBottom: '1.5px solid var(--input-border)', paddingLeft: '2px' }}>
         {TABS.map(tab => (
           <button
             key={tab.id}

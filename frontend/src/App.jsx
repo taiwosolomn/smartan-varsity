@@ -361,7 +361,8 @@ function Layout({ children }) {
               })()}
             >
               <span style={{ fontSize: '14px' }}>⚡</span>
-              {streak === 0 ? 'Start your streak' : `${streak} day streak`}
+              <span className="hide-on-mobile">{streak === 0 ? 'Start your streak' : `${streak} day streak`}</span>
+              <span className="show-on-mobile-inline">{streak === 0 ? 'Start' : `${streak}d`}</span>
             </div>
             
             <div style={{ position: 'relative' }}>
@@ -457,7 +458,7 @@ function Layout({ children }) {
               )}
             </div>
 
-            <button className="iconbtn" onClick={() => navigate('/calendar')} title="Calendar">
+            <button className="iconbtn hide-on-mobile" onClick={() => navigate('/calendar')} title="Calendar">
               <IconCalendar size={19} />
             </button>
             

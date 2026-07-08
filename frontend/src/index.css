@@ -722,7 +722,7 @@ input, textarea, select {
     padding-bottom: 90px; /* offset bottom nav */
   }
   
-  .grid-4, .grid-3, .grid-2 {
+  .grid-3, .grid-2 {
     grid-template-columns: 1fr;
     gap: 16px;
   }
@@ -1737,4 +1737,235 @@ input:checked + .toggle-slider:before {
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite linear;
   border-radius: 4px;
+}
+
+/* ───────────────────────────────────────────────────────────
+   FULL-SITE RESPONSIVENESS PASS
+   Breakpoints:
+     ≤1280px – laptop / small desktop
+     ≤1024px – tablet landscape
+     ≤768px  – tablet portrait / large mobile (sidebar hides)
+     ≤640px  – large phone
+     ≤480px  – phone
+     ≤375px  – small phone
+   ─────────────────────────────────────────────────────────── */
+
+/* ── Utility visibility helpers ──────────────────────────── */
+.hide-on-mobile        { display: inherit; }
+.show-on-mobile-inline { display: none; }
+
+/* ── Charts: horizontal-scroll wrapper (never full-page scroll) */
+.chart-scroll-container {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
+}
+
+/* ── Prevent horizontal page scroll in main content ───────── */
+.main-content { overflow-x: hidden; }
+
+/* ═══════════════════════════════════════════════════════════
+   ≤1280px  Laptop / small desktop
+   ═══════════════════════════════════════════════════════════ */
+@media (max-width: 1280px) {
+  .main-content  { padding: 28px; }
+  .tracks-grid   { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ≤1024px  Tablet landscape
+   ═══════════════════════════════════════════════════════════ */
+@media (max-width: 1024px) {
+  .dashboard-title { font-size: 30px; }
+
+  /* 4-col stats → 2×2 */
+  .grid-4 { grid-template-columns: repeat(2, 1fr); }
+
+  /* Dashboard header: stack title + CTA */
+  .dashboard-header-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+  }
+
+  /* Tracks header actions: allow wrap */
+  .header-actions-wrap { flex-wrap: wrap; }
+
+  /* Topbar padding reduce */
+  .topbar { padding: 0 24px; }
+
+  /* Calendar: hide full grid, show agenda list */
+  .desktop-only-calendar-grid { display: none !important; }
+  .mobile-only-calendar-list  { display: flex !important; flex-direction: column; gap: 8px; }
+
+  /* Analytics stat grid */
+  #page-analytics .grid-4 { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ≤768px  Tablet portrait / large mobile
+   ═══════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  /* ── Utility ──────────────────────────────────────────── */
+  .hide-on-mobile        { display: none !important; }
+  .show-on-mobile-inline { display: inline !important; }
+
+  /* ── Layout ───────────────────────────────────────────── */
+  .main-content { padding: 20px 16px; padding-bottom: 84px; overflow-x: hidden; }
+
+  /* ── Topbar ───────────────────────────────────────────── */
+  .topbar { padding: 0 16px; height: 58px; }
+  .topbar-brand { font-size: 15px; }
+  .topbar-page-title { display: none; }
+  .topbar-right { gap: 8px; }
+
+  /* ── Dashboard ────────────────────────────────────────── */
+  .dashboard-title { font-size: 26px; letter-spacing: -0.5px; }
+  .grid-4 { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .grid-2 { grid-template-columns: 1fr; gap: 16px; }
+  #page-dashboard .grid-2 { grid-template-columns: 1fr; align-items: stretch; }
+  .dashboard-right-col { display: flex !important; flex-direction: column; gap: 16px; }
+
+  /* ── Tracks ───────────────────────────────────────────── */
+  .tracks-grid { grid-template-columns: 1fr; gap: 16px; }
+
+  .header-actions-wrap {
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .header-actions-wrap .ghostpill,
+  .header-actions-wrap .pillbtn {
+    flex: 1 1 auto;
+    justify-content: center;
+    font-size: 13px;
+    padding: 10px 14px;
+    min-height: 44px;
+  }
+
+  /* ── Import Curriculum ────────────────────────────────── */
+  .import-actions-row { flex-direction: column; gap: 12px; }
+  .import-actions-row .ghostpill,
+  .import-actions-row .pillbtn { width: 100%; justify-content: center; min-height: 44px; }
+
+  /* ── Log Session ──────────────────────────────────────── */
+  .track-pills { gap: 8px; }
+  .track-pill-btn { min-height: 44px; font-size: 13px; padding: 8px 14px; }
+  .duration-row { flex-wrap: wrap; gap: 8px; }
+  .duration-row .duration-quick { flex: 1 1 calc(33.33% - 8px); min-height: 44px; }
+
+  /* ── Analytics ────────────────────────────────────────── */
+  #page-analytics .grid-4 { grid-template-columns: repeat(2, 1fr); }
+  #page-analytics .grid-2 { grid-template-columns: 1fr; }
+
+  /* ── Calendar ─────────────────────────────────────────── */
+  .desktop-only-calendar-grid { display: none !important; }
+  .mobile-only-calendar-list  { display: flex !important; flex-direction: column; gap: 8px; }
+
+  /* ── Buttons / tap targets ────────────────────────────── */
+  .pillbtn, .ghostpill { min-height: 44px; }
+
+  /* ── Inputs ───────────────────────────────────────────── */
+  .field, input[type="text"], input[type="date"],
+  input[type="number"], input[type="email"],
+  input[type="password"], textarea, select {
+    min-height: 44px;
+  }
+
+  /* ── Tables ───────────────────────────────────────────── */
+  .data-table { display: block; overflow-x: auto; }
+
+  /* ── Notification dropdown ────────────────────────────── */
+  .notif-dropdown { width: calc(100vw - 32px) !important; right: -8px !important; }
+
+  /* ── Modals → bottom sheet ────────────────────────────── */
+  .modal {
+    border-radius: 20px 20px 0 0 !important;
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    top: auto !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    transform: none !important;
+    padding-bottom: calc(20px + env(safe-area-inset-bottom)) !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ≤640px  Large phone
+   ═══════════════════════════════════════════════════════════ */
+@media (max-width: 640px) {
+  .main-content { padding: 16px 14px; padding-bottom: 84px; }
+  .dashboard-title { font-size: 23px; }
+
+  /* Stat boxes: stay 2-col */
+  .grid-4 { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .stat-box { padding: 14px 16px; }
+  .stat-box-val { font-size: 22px; }
+
+  /* Cards: tighter padding */
+  .card { padding: 18px 16px; border-radius: 18px; }
+
+  /* Track list items: compact */
+  .track-card-item { padding: 12px 14px; }
+
+  /* Filter bar: stack */
+  .filter-row-container { flex-direction: column; align-items: stretch; gap: 10px; }
+
+  /* Duration buttons: 2 per row */
+  .duration-row .duration-quick { flex: 1 1 calc(50% - 8px); }
+
+  /* Tracks header: full-width column */
+  .header-actions-wrap { flex-direction: column; gap: 8px; }
+  .header-actions-wrap .ghostpill,
+  .header-actions-wrap .pillbtn { width: 100%; justify-content: center; }
+
+  /* Topbar brand: tighter */
+  .topbar-brand { font-size: 14px; }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ≤480px  Phone
+   ═══════════════════════════════════════════════════════════ */
+@media (max-width: 480px) {
+  /* Stat boxes: single column */
+  .grid-4 { grid-template-columns: 1fr; gap: 10px; }
+  .stat-box {
+    flex-direction: row;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+  }
+
+  .card { padding: 16px 14px; }
+  .dashboard-title { font-size: 21px; }
+
+  /* Topbar: tightest */
+  .topbar { padding: 0 12px; height: 54px; }
+  .topbar-right { gap: 4px; }
+
+  /* Mobile nav: compact */
+  .mobile-nav { height: 60px; }
+  .mobile-nav .rico { width: 42px; height: 42px; }
+
+  /* Import drop zone: tighter */
+  #curriculum-drop-zone { padding: 32px 16px; }
+
+  /* Track card colored band: shorter */
+  .track-card-band { height: 100px !important; }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ≤375px  Small phone
+   ═══════════════════════════════════════════════════════════ */
+@media (max-width: 375px) {
+  .topbar-brand span { display: none; }
+  .card { border-radius: 14px; padding: 14px 12px; }
+  .stat-box-val { font-size: 20px; }
+  .stat-box { padding: 12px 14px; }
+  body { font-size: 14px; }
 }
