@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import api, { renderTrackIcon, API_URL } from '../api';
 import TrackIconPicker from '../components/TrackIconPicker.jsx';
 import TrackIconRenderer from '../components/TrackIconRenderer.jsx';
-import { IconPlus, IconLayoutGrid, IconList, IconX, IconUpload, IconChevronRight } from '@tabler/icons-react';
+import { IconPlus, IconLayoutGrid, IconList, IconX, IconUpload, IconChevronRight, IconCalendar } from '@tabler/icons-react';
 
 // Shimmer CSS skeleton style definition
 const skeletonStyle = `
@@ -131,6 +131,12 @@ export default function Tracks() {
   const [newIconState, setNewIconState] = useState({ type: 'emoji', value: '🧠', imageUrl: null, thumbUrl: null });
   const [newTrackColor, setNewTrackColor] = useState('#C25A3A');
   const [newTrackPhase, setNewTrackPhase] = useState('Phase I');
+
+  // Push schedule states
+  const [isPushModalOpen, setIsPushModalOpen] = useState(false);
+  const [pushDays, setPushDays] = useState(7);
+  const [pushing, setPushing] = useState(false);
+  const [pushError, setPushError] = useState('');
 
   // Validation & shake animations
   const [valErrors, setValErrors] = useState({ name: '', color: '', icon: '', combined: '' });
@@ -354,6 +360,28 @@ export default function Tracks() {
     }
   };
 
+  const handlePushSchedule = async (e) => {
+    e.preventDefault();
+    setPushing(true);
+    setPushError('');
+    try {
+      await api.post('/tracks/push-schedule', { days: parseInt(pushDays, 10) });
+      setIsPushModalOpen(false);
+      try {
+        localStorage.removeItem('sv_tracks_cache');
+        localStorage.removeItem('sv_tracks_cache_timestamp');
+        localStorage.removeItem('sv_dashboard_cache');
+        localStorage.removeItem('sv_dashboard_cache_timestamp');
+      } catch (e) {}
+      fetchTracks(true);
+    } catch (err) {
+      const detail = err?.response?.data?.detail;
+      setPushError(typeof detail === 'string' ? detail : 'Failed to push schedule. Please try again.');
+    } finally {
+      setPushing(false);
+    }
+  };
+
   // Filter logic: Active is started (>0%) and not completed (<100%)
   const filteredTracks = tracks.filter(t => {
     const p = calculateTrackProgress(t);
@@ -424,10 +452,20 @@ export default function Tracks() {
             A new lane in your grind. Name it, mark it, run it.
           </div>
         </div>
-        <button className="pillbtn" onClick={() => setIsModalOpen(true)}>
-          <IconPlus size={16} /> 
-          <span className="hide-on-mobile">New track</span>
-        </button>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <button className="ghostpill" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', padding: '8px 16px', font: '800 13px Urbanist', cursor: 'pointer' }} onClick={() => setIsPushModalOpen(true)}>
+            <IconCalendar size={15} />
+            <span>Push schedule</span>
+          </button>
+          <button className="ghostpill" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', padding: '8px 16px', font: '800 13px Urbanist', cursor: 'pointer' }} onClick={() => navigate('/import-curriculum')}>
+            <IconUpload size={15} />
+            <span>Import curriculum</span>
+          </button>
+          <button className="pillbtn" onClick={() => setIsModalOpen(true)}>
+            <IconPlus size={16} /> 
+            <span className="hide-on-mobile">New track</span>
+          </button>
+        </div>
       </div>
 
       {/* FILTER BAR AND TOGGLES */}
@@ -676,8 +714,72 @@ export default function Tracks() {
           </div>
         )
       ) : (
-        <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '60px 0', fontSize: '15px', fontWeight: 600 }}>
-          No tracks found in this category.
+        tracks.length === 0 ? (
+          <div className="card" style={{ padding: '48px 32px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '20px', maxWidth: '600px', margin: '40px auto' }}>
+            <div style={{ fontSize: '48px' }}>🚀</div>
+            <div>
+              <h2 style={{ font: '900 20px Urbanist', color: 'var(--text)', marginBottom: '8px' }}>Welcome to Smartan Varsity</h2>
+              <p style={{ font: '600 13.5px/1.6 Urbanist', color: 'var(--text-muted)', maxWidth: '420px', margin: 0 }}>
+                Get started by importing a pre-generated curriculum JSON file or create your first study track manually.
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+              <button className="ghostpill" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', padding: '10px 20px', font: '800 13px Urbanist', cursor: 'pointer' }} onClick={() => setIsModalOpen(true)}>
+                <IconPlus size={15} />
+                <span>Create Track Manually</span>
+              </button>
+              <button id="import-curriculum-cta-btn" className="pillbtn" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', padding: '10px 20px', font: '800 13px Urbanist', cursor: 'pointer' }} onClick={() => navigate('/import-curriculum')}>
+                <IconUpload size={15} />
+                <span>Import Curriculum</span>
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '60px 0', fontSize: '15px', fontWeight: 600 }}>
+            No tracks found in this category.
+          </div>
+        )
+      )}
+
+      {/* PUSH SCHEDULE MODAL */}
+      {isPushModalOpen && (
+        <div className="scrim" onClick={() => setIsPushModalOpen(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ width: '400px', padding: '24px' }}>
+            <div className="modal-header" style={{ marginBottom: '16px' }}>
+              <span className="modal-title" style={{ font: '900 18px Urbanist' }}>Push Schedule Forward</span>
+              <span className="modal-close" onClick={() => setIsPushModalOpen(false)} style={{ cursor: 'pointer' }}>×</span>
+            </div>
+            <form onSubmit={handlePushSchedule} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <p style={{ font: '600 13px/1.5 Urbanist', color: 'var(--text-muted)' }}>
+                Shift deadlines for all future incomplete imported modules forward by a set number of days.
+              </p>
+              <div>
+                <label className="flabel" style={{ marginBottom: '6px' }}>Number of Days</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="365"
+                  className="field"
+                  value={pushDays}
+                  onChange={e => setPushDays(e.target.value)}
+                  required
+                />
+              </div>
+              {pushError && (
+                <div style={{ color: '#EF4444', fontSize: '12px', fontWeight: 600 }}>
+                  {pushError}
+                </div>
+              )}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '8px' }}>
+                <button type="button" className="ghostpill" onClick={() => setIsPushModalOpen(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="pillbtn" disabled={pushing}>
+                  {pushing ? 'Shifting...' : 'Shift Schedule'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 

@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api, { renderTrackIcon, formatDuration } from '../api';
 import { useAuth, useCustomDialog } from '../App';
-import { IconPlus, IconStar, IconTrash, IconX, IconCalendar, IconClock, IconChevronRight } from '@tabler/icons-react';
+import { getFirstName } from '../utils/nameHelper';
+import { IconPlus, IconChevronRight, IconStar, IconX, IconTrash, IconCheck, IconAlertCircle, IconCalendar } from '@tabler/icons-react';
 
 // LocalStorage-backed client-side cache variables (persist across navigations and page refreshes)
 let dashboardCache = null;
@@ -117,6 +118,8 @@ export default function Dashboard() {
   
   const [selectedLog, setSelectedLog] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [dueData, setDueData] = useState({ due_today: [], this_week: [] });
+  const [loadingDue, setLoadingDue] = useState(true);
   const navigate = useNavigate();
 
   const getTodayDateString = () => {
@@ -197,9 +200,37 @@ export default function Dashboard() {
     }
   };
 
+  const fetchDueData = async () => {
+    try {
+      const res = await api.get('/dashboard/due-today');
+      setDueData(res.data);
+    } catch (err) {
+      console.error("Failed to fetch due today/this week modules", err);
+    } finally {
+      setLoadingDue(false);
+    }
+  };
+
   useEffect(() => {
     fetchData();
+    fetchDueData();
   }, []);
+
+  const handleCompleteModule = async (moduleId) => {
+    setDueData(prev => ({
+      due_today: prev.due_today.filter(m => m.id !== moduleId),
+      this_week: prev.this_week.filter(m => m.id !== moduleId)
+    }));
+
+    try {
+      await api.put(`/modules/${moduleId}`, { status: 'done' });
+      fetchDueData();
+      fetchData(true);
+    } catch (err) {
+      console.error("Failed to complete module", err);
+      fetchDueData();
+    }
+  };
 
   const handleDeleteLog = async (logId) => {
     const isConfirmed = await showConfirm("Are you sure you want to delete this session log?", "Delete Session Log");
@@ -339,7 +370,7 @@ export default function Dashboard() {
       <div className="dashboard-header-row">
         <div>
           <h1 className="dashboard-title">
-            Howdy, {user?.fullName ? user.fullName.split(' ')[0] : 'Smartan'}
+            Howdy, {getFirstName(user?.fullName, user?.email)}
           </h1>
           <div style={{ font: '600 13.5px Urbanist', color: 'var(--text-muted)', marginTop: '4px' }}>
             {getTodayDateString()} · <span style={{ color: 'var(--accent, #C25A3A)', fontWeight: 700 }}>University for Smartans</span>
@@ -376,6 +407,192 @@ export default function Dashboard() {
           subLabel="days"
           onClick={() => navigate('/analytics')}
         />
+      </div>
+
+      <style>{`
+        ${skeletonStyle}
+        .due-checkbox:hover svg {
+          opacity: 1 !important;
+        }
+      `}</style>
+
+      {/* DUE TODAY & THIS WEEK SECTION */}
+      <div className="grid-2" style={{ marginBottom: '24px' }}>
+        {/* DUE TODAY */}
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', minHeight: '200px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <span className="lbl" style={{ margin: 0 }}>Due Today</span>
+            <span style={{ fontSize: '11px', fontWeight: 800, color: '#C25A3A', background: 'rgba(194,90,58,0.1)', padding: '2px 8px', borderRadius: '99px' }}>
+              {dueData.due_today.length} tasks
+            </span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flex: 1 }}>
+            {loadingDue ? (
+              [1, 2].map(i => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 0' }}>
+                  <div className="skeleton-box" style={{ width: '20px', height: '20px', borderRadius: '4px' }} />
+                  <div style={{ flex: 1 }}>
+                    <div className="skeleton-box" style={{ width: '140px', height: '14px', marginBottom: '4px' }} />
+                    <div className="skeleton-box" style={{ width: '85px', height: '10px' }} />
+                  </div>
+                </div>
+              ))
+            ) : dueData.due_today.length > 0 ? (
+              dueData.due_today.map(mod => {
+                const deadlineDate = mod.deadline ? new Date(mod.deadline) : null;
+                const isOverdueTask = deadlineDate && new Date(new Date().toDateString()) > deadlineDate;
+                return (
+                  <div
+                    key={mod.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      padding: '10px 12px',
+                      borderRadius: '10px',
+                      background: 'var(--input-bg)',
+                      border: '1.5px solid var(--input-border)',
+                      transition: 'border-color 0.15s'
+                    }}
+                  >
+                    <button
+                      className="due-checkbox"
+                      onClick={() => handleCompleteModule(mod.id)}
+                      style={{
+                        width: '20px',
+                        height: '20px',
+                        borderRadius: '5px',
+                        border: '2px solid var(--text-muted)',
+                        background: 'transparent',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'var(--accent, #C25A3A)',
+                        transition: 'all 0.15s'
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--accent, #C25A3A)'}
+                      onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--text-muted)'}
+                    >
+                      <IconCheck size={12} style={{ opacity: 0, transition: 'opacity 0.15s' }} />
+                    </button>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ font: '800 13px Urbanist', color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {mod.title}
+                      </div>
+                      <div style={{ font: '600 11px Urbanist', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: mod.track_color }}></span>
+                        {mod.track_name} · {mod.course_name}
+                      </div>
+                    </div>
+                    {isOverdueTask && (
+                      <span style={{ font: '800 9px Urbanist', color: '#EF4444', background: 'rgba(239,68,68,0.1)', padding: '2px 6px', borderRadius: '4px', textTransform: 'uppercase' }}>
+                        Overdue
+                      </span>
+                    )}
+                  </div>
+                );
+              })
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, gap: '8px', color: 'var(--text-muted)' }}>
+                <span style={{ fontSize: '24px' }}>🎉</span>
+                <span style={{ font: '800 12.5px Urbanist' }}>All caught up for today!</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* DUE THIS WEEK */}
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', minHeight: '200px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <span className="lbl" style={{ margin: 0 }}>This Week</span>
+            <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', background: 'var(--input-bg)', padding: '2px 8px', borderRadius: '99px' }}>
+              {dueData.this_week.length} tasks
+            </span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flex: 1 }}>
+            {loadingDue ? (
+              [1, 2].map(i => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 0' }}>
+                  <div className="skeleton-box" style={{ width: '20px', height: '20px', borderRadius: '4px' }} />
+                  <div style={{ flex: 1 }}>
+                    <div className="skeleton-box" style={{ width: '140px', height: '14px', marginBottom: '4px' }} />
+                    <div className="skeleton-box" style={{ width: '85px', height: '10px' }} />
+                  </div>
+                </div>
+              ))
+            ) : dueData.this_week.length > 0 ? (
+              dueData.this_week.slice(0, 4).map(mod => {
+                const deadlineDate = mod.deadline ? new Date(mod.deadline) : null;
+                const isOverdueTask = deadlineDate && new Date(new Date().toDateString()) > deadlineDate;
+                const dayName = deadlineDate ? deadlineDate.toLocaleDateString('en-GB', { weekday: 'short' }) : '';
+                return (
+                  <div
+                    key={mod.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      padding: '10px 12px',
+                      borderRadius: '10px',
+                      background: 'var(--input-bg)',
+                      border: '1.5px solid var(--input-border)',
+                      transition: 'border-color 0.15s'
+                    }}
+                  >
+                    <button
+                      className="due-checkbox"
+                      onClick={() => handleCompleteModule(mod.id)}
+                      style={{
+                        width: '20px',
+                        height: '20px',
+                        borderRadius: '5px',
+                        border: '2px solid var(--text-muted)',
+                        background: 'transparent',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'var(--accent, #C25A3A)',
+                        transition: 'all 0.15s'
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--accent, #C25A3A)'}
+                      onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--text-muted)'}
+                    >
+                      <IconCheck size={12} style={{ opacity: 0, transition: 'opacity 0.15s' }} />
+                    </button>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ font: '800 13px Urbanist', color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {mod.title}
+                      </div>
+                      <div style={{ font: '600 11px Urbanist', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: mod.track_color }}></span>
+                        {mod.track_name} · {mod.course_name}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px', flexShrink: 0 }}>
+                      {dayName && (
+                        <span style={{ font: '800 10.5px Urbanist', color: 'var(--text)', textTransform: 'uppercase' }}>
+                          {dayName}
+                        </span>
+                      )}
+                      {isOverdueTask && (
+                        <span style={{ font: '800 9px Urbanist', color: '#EF4444', background: 'rgba(239,68,68,0.1)', padding: '1px 4px', borderRadius: '3px', textTransform: 'uppercase' }}>
+                          Overdue
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, gap: '8px', color: 'var(--text-muted)' }}>
+                <span style={{ fontSize: '24px' }}>📅</span>
+                <span style={{ font: '800 12.5px Urbanist' }}>No tasks due this week</span>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* TWO COLUMN CONTENT */}

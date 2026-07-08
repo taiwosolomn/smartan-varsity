@@ -2,19 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../api';
 import { supabase } from '../supabaseClient';
 import { useSettings, useAuth, useCustomDialog } from '../App';
-import { 
-  IconUser, 
-  IconBell, 
-  IconPalette, 
-  IconLock, 
-  IconAlertTriangle, 
-  IconKey, 
-  IconTrash,
-  IconCheck,
-  IconX,
-  IconEye,
-  IconEyeOff
-} from '@tabler/icons-react';
+import { getFirstName } from '../utils/nameHelper';
 
 export default function Settings() {
   const { settings, refreshSettings, theme, setTheme } = useSettings();
@@ -995,7 +983,7 @@ export default function Settings() {
             <div style={{ background: '#fff', color: '#100D18', borderRadius: '12px', padding: '24px', fontFamily: 'system-ui, sans-serif' }}>
               <div style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: '14px', marginBottom: '16px' }}>
                 <div style={{ fontSize: '12px', color: '#6b7280', fontWeight: 'bold' }}>SMARTAN VARSITY · DIGEST</div>
-                <div style={{ fontSize: '20px', fontWeight: '900', color: '#111827', marginTop: '2px' }}>Grind Recap: {user?.fullName || 'Smartan'}</div>
+                <div style={{ fontSize: '20px', fontWeight: '900', color: '#111827', marginTop: '2px' }}> Grinde Recap: {getFirstName(user?.fullName, user?.email) || 'Smartan'}</div>
               </div>
               <p style={{ fontSize: '14px', color: '#374151', lineHeight: '1.5' }}>Here is what you accomplished from Monday to Sunday:</p>
               

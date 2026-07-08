@@ -15,6 +15,8 @@ import Resources from './pages/Resources';
 import Profile from './pages/Profile';
 import SettingsPage from './pages/Settings';
 import Sessions from './pages/Sessions';
+import ImportCurriculum from './pages/ImportCurriculum';
+import ReviewCurriculum from './pages/ReviewCurriculum';
 
 // Admin Page Imports
 import AdminLogin from './pages/AdminLogin';
@@ -1149,6 +1151,8 @@ export default function App() {
                   <Route path="/resources" element={<PrivateRoute><Resources /></PrivateRoute>} />
                   <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
                   <Route path="/settings" element={<PrivateRoute><SettingsPage /></PrivateRoute>} />
+                  <Route path="/import-curriculum" element={<PrivateRoute><ImportCurriculum /></PrivateRoute>} />
+                  <Route path="/import-curriculum/:importId" element={<PrivateRoute><ReviewCurriculum /></PrivateRoute>} />
 
                   {/* Admin routes */}
                   <Route path="/admin/login" element={<AdminLogin />} />

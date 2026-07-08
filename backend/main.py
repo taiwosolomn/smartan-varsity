@@ -35,6 +35,9 @@ os.makedirs("backend/static/avatars", exist_ok=True)
 os.makedirs("backend/static/tracks", exist_ok=True)
 app.mount("/static", StaticFiles(directory="backend/static"), name="static")
 
+# Compress all responses >= 1KB with gzip (reduces payload size by 70-90%)
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
 # Setup CORS so React frontend can communicate with backend
 app.add_middleware(
     CORSMiddleware,
@@ -43,9 +46,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Compress all responses >= 1KB with gzip (reduces payload size by 70-90%)
-app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 def hex_to_hsl(hex_str: str):
     try:
@@ -281,6 +281,86 @@ def startup_event():
     except Exception as e:
         print("Backfill error", e)
         db_mig.rollback()
+
+    # ── Curriculum Import schema additions ─────────────────────────────────
+    # modules table extensions
+    for col_sql in [
+        "ALTER TABLE modules ADD COLUMN IF NOT EXISTS deadline DATE",
+        "ALTER TABLE modules ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'manual'",
+        "ALTER TABLE modules ADD COLUMN IF NOT EXISTS day TEXT",
+        "ALTER TABLE modules ADD COLUMN IF NOT EXISTS task TEXT",
+        "ALTER TABLE modules ADD COLUMN IF NOT EXISTS description TEXT",
+        "ALTER TABLE modules ADD COLUMN IF NOT EXISTS due_by_week INTEGER",
+    ]:
+        try:
+            db_mig.execute(text(col_sql))
+            db_mig.commit()
+        except Exception:
+            db_mig.rollback()
+
+    # courses table extensions
+    for col_sql in [
+        "ALTER TABLE courses ADD COLUMN IF NOT EXISTS deadline DATE",
+        "ALTER TABLE courses ADD COLUMN IF NOT EXISTS deliverable TEXT",
+        "ALTER TABLE courses ADD COLUMN IF NOT EXISTS spans_weeks TEXT",
+        "ALTER TABLE courses ADD COLUMN IF NOT EXISTS reference TEXT",
+    ]:
+        try:
+            db_mig.execute(text(col_sql))
+            db_mig.commit()
+        except Exception:
+            db_mig.rollback()
+
+    # tracks table extensions
+    for col_sql in [
+        "ALTER TABLE tracks ADD COLUMN IF NOT EXISTS deadline DATE",
+        "ALTER TABLE tracks ADD COLUMN IF NOT EXISTS code TEXT",
+        "ALTER TABLE tracks ADD COLUMN IF NOT EXISTS weekly_hours NUMERIC",
+        "ALTER TABLE tracks ADD COLUMN IF NOT EXISTS total_hours NUMERIC",
+        "ALTER TABLE tracks ADD COLUMN IF NOT EXISTS track_resources JSONB",
+        "ALTER TABLE tracks ADD COLUMN IF NOT EXISTS smartan_builder_alignment JSONB",
+        "ALTER TABLE tracks ADD COLUMN IF NOT EXISTS live_industry_experiences JSONB",
+    ]:
+        try:
+            db_mig.execute(text(col_sql))
+            db_mig.commit()
+        except Exception:
+            db_mig.rollback()
+
+    # curriculum_imports table
+    try:
+        db_mig.execute(text("""
+            CREATE TABLE IF NOT EXISTS curriculum_imports (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                user_id VARCHAR REFERENCES users(id) NOT NULL,
+                original_filename TEXT,
+                raw_json JSONB NOT NULL,
+                edited_json JSONB,
+                status TEXT NOT NULL DEFAULT 'draft',
+                validation_errors JSONB,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                confirmed_at TIMESTAMPTZ
+            )
+        """))
+        db_mig.commit()
+    except Exception:
+        db_mig.rollback()
+
+    # module_overdue_flags table
+    try:
+        db_mig.execute(text("""
+            CREATE TABLE IF NOT EXISTS module_overdue_flags (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                module_id VARCHAR REFERENCES modules(id) NOT NULL,
+                user_id VARCHAR REFERENCES users(id) NOT NULL,
+                flagged_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                resolved_at TIMESTAMPTZ
+            )
+        """))
+        db_mig.commit()
+    except Exception:
+        db_mig.rollback()
+
     finally:
         db_mig.close()
 
@@ -1356,10 +1436,55 @@ router_calendar = APIRouter(prefix="/calendar", tags=["Calendar"])
 
 @router_calendar.get("", response_model=List[CalendarEventResponse])
 def get_calendar_events(month: Optional[str] = None, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    # 1. Fetch custom calendar events
     query = db.query(CalendarEvent).filter(CalendarEvent.userId == current_user.id)
     if month:
         query = query.filter(CalendarEvent.date.like(f"{month}%"))
-    return query.order_by(CalendarEvent.date.desc()).all()
+    custom_events = query.all()
+    
+    # 2. Fetch module deadlines (joining courses and tracks to filter by userId)
+    from sqlalchemy import text as sqltext
+    module_query_str = """
+        SELECT m.id, m.title, m.deadline, t.id AS track_id
+        FROM modules m
+        JOIN courses c ON m."courseId" = c.id
+        JOIN tracks t ON c."trackId" = t.id
+        WHERE t."userId" = :uid AND m.deadline IS NOT NULL
+    """
+    params = {"uid": current_user.id}
+    if month:
+        module_query_str += " AND CAST(m.deadline AS text) LIKE :month"
+        params["month"] = f"{month}%"
+        
+    module_rows = db.execute(sqltext(module_query_str), params).fetchall()
+    
+    # Merge custom events and module deadlines
+    events = []
+    # Add custom events
+    for e in custom_events:
+        events.append(CalendarEventResponse(
+            id=e.id,
+            trackId=e.trackId,
+            topic=e.topic,
+            date=str(e.date),
+            time=e.time,
+            duration=e.duration
+        ))
+        
+    # Add module deadlines formatted as calendar events
+    for r in module_rows:
+        events.append(CalendarEventResponse(
+            id=r.id,
+            trackId=r.track_id,
+            topic=f"Deadline: {r.title}",
+            date=str(r.deadline),
+            time="09:00",
+            duration=60
+        ))
+        
+    # Sort by date desc
+    events.sort(key=lambda x: x.date, reverse=True)
+    return events
 
 @router_calendar.post("", response_model=CalendarEventResponse)
 def create_calendar_event(event_in: CalendarEventCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -1980,7 +2105,611 @@ def get_dashboard_summary(current_user: User = Depends(get_current_user), db: Se
         "recentActivity": recent_list
     }
 
-# --- REGISTER ALL ROUTERS TO APP ---
+# --- DUE TODAY / THIS WEEK ENDPOINT ---
+router_due = APIRouter(prefix="/dashboard", tags=["Dashboard"])
+
+@router_due.get("/due-today")
+def get_due_today(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Returns modules due today and this week for the Smartan, and runs overdue checks."""
+    from sqlalchemy import text as sqltext
+    import datetime
+
+    today = datetime.date.today()
+    today_str = today.isoformat()
+    week_start = today - datetime.timedelta(days=today.weekday())
+    week_end = week_start + datetime.timedelta(days=6)
+    week_start_str = week_start.isoformat()
+    week_end_str = week_end.isoformat()
+
+    # Fetch modules due today (incomplete, deadline == today)
+    due_today_rows = db.execute(sqltext("""
+        SELECT m.id, m.title, m.deadline, m.status, m."completedAt",
+               c.name AS course_name, t.name AS track_name, t.color AS track_color,
+               t.id AS track_id, c.id AS course_id
+        FROM modules m
+        JOIN courses c ON m."courseId" = c.id
+        JOIN tracks t ON c."trackId" = t.id
+        WHERE t."userId" = :uid
+          AND m.deadline = :today
+          AND m."completedAt" IS NULL
+        ORDER BY t.name, c.name, m."order"
+    """), {"uid": current_user.id, "today": today_str}).fetchall()
+
+    due_today = [
+        {
+            "id": str(r.id), "title": r.title,
+            "deadline": str(r.deadline) if r.deadline else None,
+            "status": r.status,
+            "course_name": r.course_name, "track_name": r.track_name,
+            "track_color": r.track_color, "track_id": r.track_id,
+            "course_id": r.course_id
+        } for r in due_today_rows
+    ]
+
+    # Fetch modules due this week (incomplete, deadline > today, deadline <= sunday)
+    this_week_rows = db.execute(sqltext("""
+        SELECT m.id, m.title, m.deadline, m.status, m."completedAt",
+               c.name AS course_name, t.name AS track_name, t.color AS track_color,
+               t.id AS track_id, c.id AS course_id
+        FROM modules m
+        JOIN courses c ON m."courseId" = c.id
+        JOIN tracks t ON c."trackId" = t.id
+        WHERE t."userId" = :uid
+          AND m.deadline > :today
+          AND m.deadline <= :week_end
+          AND m."completedAt" IS NULL
+        ORDER BY m.deadline, t.name, c.name, m."order"
+    """), {"uid": current_user.id, "today": today_str, "week_end": week_end_str}).fetchall()
+
+    this_week = [
+        {
+            "id": str(r.id), "title": r.title,
+            "deadline": str(r.deadline) if r.deadline else None,
+            "status": r.status,
+            "course_name": r.course_name, "track_name": r.track_name,
+            "track_color": r.track_color, "track_id": r.track_id,
+            "course_id": r.course_id
+        } for r in this_week_rows
+    ]
+
+    # Overdue check: flag any module 3+ days overdue that isn't yet flagged
+    three_days_ago = (today - datetime.timedelta(days=3)).isoformat()
+    overdue_rows = db.execute(sqltext("""
+        SELECT m.id, m.deadline FROM modules m
+        JOIN courses c ON m."courseId" = c.id
+        JOIN tracks t ON c."trackId" = t.id
+        WHERE t."userId" = :uid
+          AND m.deadline IS NOT NULL
+          AND m.deadline <= :three_days_ago
+          AND m."completedAt" IS NULL
+    """), {"uid": current_user.id, "three_days_ago": three_days_ago}).fetchall()
+
+    for row in overdue_rows:
+        mid = str(row.id)
+        # Check if already flagged (unresolved)
+        existing_flag = db.execute(sqltext("""
+            SELECT id FROM module_overdue_flags
+            WHERE module_id = :mid AND user_id = :uid AND resolved_at IS NULL
+        """), {"mid": mid, "uid": current_user.id}).fetchone()
+
+        if not existing_flag:
+            # Insert overdue flag
+            db.execute(sqltext("""
+                INSERT INTO module_overdue_flags (module_id, user_id, flagged_at)
+                VALUES (:mid, :uid, now())
+            """), {"mid": mid, "uid": current_user.id})
+
+            # Log to activity_log — plugs into existing admin engagement flags system
+            db.execute(sqltext("""
+                INSERT INTO activity_log (user_id, actor_id, actor_role, event_type, event_detail, created_at)
+                VALUES (:uid, :uid, 'smartan', 'module_overdue',
+                        jsonb_build_object('module_id', :mid, 'deadline', :dl), now())
+            """), {"uid": current_user.id, "mid": mid, "dl": str(row.deadline)})
+
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+
+    return {"due_today": due_today, "this_week": this_week}
+
+
+# --- CURRICULUM IMPORT ROUTER ---
+router_curriculum = APIRouter(prefix="/curriculum-imports", tags=["Curriculum Import"])
+
+def _validate_curriculum_json(lms: dict, meta: dict) -> list:
+    """Server-side validation. Returns list of {field, message} dicts."""
+    import datetime
+    errors = []
+
+    if not isinstance(lms, dict) or not isinstance(meta, dict):
+        errors.append({"field": "root", "message": "Invalid curriculum JSON format"})
+        return errors
+
+    duration_weeks = meta.get("duration_weeks", 0)
+    if not isinstance(duration_weeks, (int, float)):
+        try:
+            duration_weeks = float(duration_weeks)
+        except (ValueError, TypeError):
+            duration_weeks = 0
+
+    prog_start = meta.get("programme_start_date")
+    prog_end = meta.get("programme_end_date")
+
+    try:
+        prog_start_dt = datetime.date.fromisoformat(str(prog_start)) if prog_start else None
+        prog_end_dt = datetime.date.fromisoformat(str(prog_end)) if prog_end else None
+    except ValueError:
+        errors.append({"field": "metadata.programme_start_date/end_date", "message": "Invalid programme date format"})
+        prog_start_dt = prog_end_dt = None
+
+    total_weekly_hours = meta.get("total_weekly_hours", 0)
+    if not isinstance(total_weekly_hours, (int, float)):
+        try:
+            total_weekly_hours = float(total_weekly_hours)
+        except (ValueError, TypeError):
+            total_weekly_hours = 0
+
+    tracks = lms.get("tracks", [])
+    if not isinstance(tracks, list):
+        errors.append({"field": "tracks", "message": "tracks must be a list"})
+        return errors
+
+    sum_weekly = 0
+    for t in tracks:
+        if isinstance(t, dict):
+            wh = t.get("weekly_hours")
+            if wh is not None:
+                try:
+                    sum_weekly += float(wh)
+                except (ValueError, TypeError):
+                    pass
+
+    if tracks and abs(sum_weekly - total_weekly_hours) > 0.5:
+        errors.append({
+            "field": "metadata.total_weekly_hours",
+            "message": f"total_weekly_hours ({total_weekly_hours}) does not equal sum of track weekly_hours ({sum_weekly})"
+        })
+
+    def parse_date(ds, field):
+        if not ds:
+            return None
+        try:
+            return datetime.date.fromisoformat(str(ds))
+        except ValueError:
+            errors.append({"field": field, "message": f"Invalid date '{ds}' — must be YYYY-MM-DD"})
+            return None
+
+    def check_weekday(d, field):
+        if d and d.weekday() >= 5:
+            day_name = "Saturday" if d.weekday() == 5 else "Sunday"
+            errors.append({"field": field, "message": f"Deadline {d} falls on a {day_name} — must be a weekday"})
+
+    def check_in_window(d, field):
+        if d and prog_start_dt and prog_end_dt:
+            if d < prog_start_dt or d > prog_end_dt:
+                errors.append({"field": field, "message": f"Date {d} falls outside programme window ({prog_start}–{prog_end})"})
+
+    for ti, track in enumerate(tracks):
+        if not isinstance(track, dict):
+            errors.append({"field": f"tracks[{ti}]", "message": "track item must be an object"})
+            continue
+        track_id = track.get("id", f"track_{ti}")
+        t_dl = parse_date(track.get("deadline"), f"tracks[{track_id}].deadline")
+        if t_dl:
+            check_weekday(t_dl, f"tracks[{track_id}].deadline")
+            check_in_window(t_dl, f"tracks[{track_id}].deadline")
+
+        # Check total_hours = weekly_hours * duration_weeks
+        wh = track.get("weekly_hours") or 0
+        if not isinstance(wh, (int, float)):
+            try: wh = float(wh)
+            except (ValueError, TypeError): wh = 0
+        th = track.get("total_hours") or 0
+        if not isinstance(th, (int, float)):
+            try: th = float(th)
+            except (ValueError, TypeError): th = 0
+
+        expected_th = round(wh * duration_weeks, 1)
+        if wh and duration_weeks and abs(th - expected_th) > 0.5:
+            errors.append({
+                "field": f"tracks[{track_id}].total_hours",
+                "message": f"total_hours ({th}) should equal weekly_hours ({wh}) × duration_weeks ({duration_weeks}) = {expected_th}"
+            })
+
+        courses = track.get("courses", [])
+        if not isinstance(courses, list):
+            errors.append({"field": f"tracks[{track_id}].courses", "message": "courses must be a list"})
+            continue
+
+        last_course_dl = None
+        for ci, course in enumerate(courses):
+            if not isinstance(course, dict):
+                errors.append({"field": f"tracks[{track_id}].courses[{ci}]", "message": "course item must be an object"})
+                continue
+            course_id = course.get("id", f"course_{ci}")
+            c_dl = parse_date(course.get("deadline"), f"tracks[{track_id}].courses[{course_id}].deadline")
+            if c_dl:
+                check_weekday(c_dl, f"tracks[{track_id}].courses[{course_id}].deadline")
+                check_in_window(c_dl, f"tracks[{track_id}].courses[{course_id}].deadline")
+            last_course_dl = c_dl
+
+            modules = course.get("modules", [])
+            if not isinstance(modules, list):
+                errors.append({"field": f"tracks[{track_id}].courses[{course_id}].modules", "message": "modules must be a list"})
+                continue
+
+            last_module_dl = None
+            prev_module_dl = None
+            for mi, module in enumerate(modules):
+                if not isinstance(module, dict):
+                    errors.append({"field": f"tracks[{track_id}].courses[{course_id}].modules[{mi}]", "message": "module item must be an object"})
+                    continue
+                module_id = module.get("id", f"module_{mi}")
+                m_dl = parse_date(module.get("deadline"), f"tracks[{track_id}].courses[{course_id}].modules[{module_id}].deadline")
+                if m_dl:
+                    check_weekday(m_dl, f"tracks[{track_id}].courses[{course_id}].modules[{module_id}].deadline")
+                    check_in_window(m_dl, f"tracks[{track_id}].courses[{course_id}].modules[{module_id}].deadline")
+                    # Ascending order check
+                    if prev_module_dl and m_dl < prev_module_dl:
+                        errors.append({
+                            "field": f"tracks[{track_id}].courses[{course_id}].modules[{module_id}].deadline",
+                            "message": f"Module deadline {m_dl} is before previous module deadline {prev_module_dl} — must be ascending"
+                        })
+                    prev_module_dl = m_dl
+                last_module_dl = m_dl
+
+            # Last module deadline should equal course deadline
+            if last_module_dl and c_dl and last_module_dl != c_dl:
+                errors.append({
+                    "field": f"tracks[{track_id}].courses[{course_id}].deadline",
+                    "message": f"Course deadline ({c_dl}) should equal its last module deadline ({last_module_dl})"
+                })
+
+        # Last course deadline should equal track deadline
+        if last_course_dl and t_dl and last_course_dl != t_dl:
+            errors.append({
+                "field": f"tracks[{track_id}].deadline",
+                "message": f"Track deadline ({t_dl}) should equal its last course deadline ({last_course_dl})"
+            })
+
+    return errors
+
+
+@router_curriculum.post("")
+def upload_curriculum(
+    payload: dict,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Upload a pre-generated curriculum JSON. Stores as draft, validates, returns import_id + errors."""
+    from sqlalchemy import text as sqltext
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+    try:
+        raw = payload.get("json_data")
+        filename = payload.get("filename", "upload.json")
+
+        if not raw or not isinstance(raw, dict):
+            raise HTTPException(status_code=400, detail="Missing or invalid json_data field")
+
+        lms = raw.get("lms_export")
+        if not lms:
+            raise HTTPException(status_code=400, detail="JSON must have top-level 'lms_export' key")
+
+        meta = lms.get("metadata", {})
+        
+        try:
+            validation_errors = _validate_curriculum_json(lms, meta)
+        except Exception as ve:
+            logger.exception("Validation logic failed due to structure mismatch")
+            raise HTTPException(status_code=400, detail=f"Failed to validate curriculum JSON structure: {str(ve)}")
+
+        import_id_str = str(uuid.uuid4())
+        
+        try:
+            db.execute(sqltext("""
+                INSERT INTO curriculum_imports (id, user_id, original_filename, raw_json, status, validation_errors, created_at)
+                VALUES (:id, :uid, :fname, CAST(:raw AS jsonb), 'draft', CAST(:errors AS jsonb), now())
+            """), {
+                "id": import_id_str,
+                "uid": current_user.id,
+                "fname": filename,
+                "raw": __import__("json").dumps(raw),
+                "errors": __import__("json").dumps(validation_errors)
+            })
+            db.commit()
+        except Exception as dbe:
+            db.rollback()
+            logger.exception("Database error during curriculum upload insertion")
+            raise HTTPException(status_code=500, detail=f"Database error saving curriculum import: {str(dbe)}")
+
+        return {
+            "import_id": import_id_str,
+            "validation_errors": validation_errors,
+            "has_errors": len(validation_errors) > 0
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Unexpected error in upload_curriculum")
+        raise HTTPException(status_code=500, detail="An unexpected server error occurred while processing the upload.")
+
+
+@router_curriculum.get("/{import_id}")
+def get_curriculum_import(
+    import_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    from sqlalchemy import text as sqltext
+    import logging
+
+    logger = logging.getLogger(__name__)
+    try:
+        row = db.execute(sqltext("""
+            SELECT original_filename, raw_json, edited_json, status, validation_errors
+            FROM curriculum_imports WHERE id = :id AND user_id = :uid
+        """), {"id": import_id, "uid": current_user.id}).fetchone()
+
+        if not row:
+            raise HTTPException(status_code=404, detail="Import not found")
+
+        final_json = row.edited_json if row.edited_json else row.raw_json
+        return {
+            "filename": row.original_filename,
+            "status": row.status,
+            "json_data": final_json,
+            "validation_errors": row.validation_errors or []
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Unexpected error in get_curriculum_import")
+        raise HTTPException(status_code=500, detail="An unexpected server error occurred while retrieving the curriculum.")
+
+
+@router_curriculum.put("/{import_id}")
+def update_curriculum_import(
+    import_id: str,
+    payload: dict,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Save edited_json (debounced from review screen)."""
+    from sqlalchemy import text as sqltext
+    import json
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+    try:
+        edited = payload.get("edited_json")
+        if not edited:
+            raise HTTPException(status_code=400, detail="Missing edited_json")
+
+        lms = edited.get("lms_export")
+        meta = (lms or {}).get("metadata", {})
+        
+        try:
+            validation_errors = _validate_curriculum_json(lms or {}, meta) if lms else []
+        except Exception as ve:
+            logger.exception("Validation logic failed in update due to structure mismatch")
+            raise HTTPException(status_code=400, detail=f"Failed to validate curriculum JSON structure: {str(ve)}")
+
+        try:
+            db.execute(sqltext("""
+                UPDATE curriculum_imports
+                SET edited_json = CAST(:ej AS jsonb), validation_errors = CAST(:errors AS jsonb)
+                WHERE id = :id AND user_id = :uid AND status = 'draft'
+            """), {
+                "ej": json.dumps(edited),
+                "errors": json.dumps(validation_errors),
+                "id": import_id,
+                "uid": current_user.id
+            })
+            db.commit()
+        except Exception as dbe:
+            db.rollback()
+            logger.exception("Database error during curriculum update")
+            raise HTTPException(status_code=500, detail=f"Database error updating curriculum import: {str(dbe)}")
+
+        return {"validation_errors": validation_errors, "has_errors": len(validation_errors) > 0}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Unexpected error in update_curriculum_import")
+        raise HTTPException(status_code=500, detail="An unexpected server error occurred while updating the curriculum.")
+
+
+@router_curriculum.post("/{import_id}/confirm")
+def confirm_curriculum_import(
+    import_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Re-validate, then commit tracks/courses/modules from edited_json (falling back to raw_json)."""
+    from sqlalchemy import text as sqltext
+    import json, datetime, logging
+
+    logger = logging.getLogger(__name__)
+
+    try:
+        row = db.execute(sqltext("""
+            SELECT raw_json, edited_json, status FROM curriculum_imports
+            WHERE id = :id AND user_id = :uid
+        """), {"id": import_id, "uid": current_user.id}).fetchone()
+
+        if not row:
+            raise HTTPException(status_code=404, detail="Import not found")
+        if row.status == "confirmed":
+            raise HTTPException(status_code=400, detail="Already confirmed")
+
+        final_json = row.edited_json if row.edited_json else row.raw_json
+        lms = final_json.get("lms_export") if final_json else None
+        if not lms:
+            raise HTTPException(status_code=400, detail="No valid curriculum data to confirm")
+
+        meta = lms.get("metadata", {})
+        
+        try:
+            errors = _validate_curriculum_json(lms, meta)
+        except Exception as ve:
+            logger.exception("Validation logic failed during confirm due to structure mismatch")
+            raise HTTPException(status_code=400, detail=f"Failed to validate curriculum JSON structure: {str(ve)}")
+
+        if errors:
+            raise HTTPException(status_code=422, detail={"validation_errors": errors})
+
+        tracks_data = lms.get("tracks", [])
+        
+        try:
+            max_order = db.execute(sqltext('SELECT COALESCE(MAX("order"), -1) FROM tracks WHERE "userId" = :uid'),
+                                   {"uid": current_user.id}).scalar() or -1
+
+            for ti, t_data in enumerate(tracks_data):
+                track_id = generate_id("t")
+                color_palette = ["#C25A3A", "#4285F4", "#34A853", "#FBBC05", "#A066CB", "#EA4335", "#0891B2"]
+                color = color_palette[ti % len(color_palette)]
+                h, s, l = hex_to_hsl(color)
+
+                deadline_val = t_data.get("deadline")
+                db.execute(sqltext("""
+                    INSERT INTO tracks (id, "userId", name, icon, color, phase, "order", "createdAt",
+                                        "hslHue", "hslSaturation", "hslLightness",
+                                        deadline, code, weekly_hours, total_hours,
+                                        track_resources, smartan_builder_alignment, live_industry_experiences)
+                    VALUES (:id, :uid, :name, :icon, :color, :phase, :order, now(),
+                            :hue, :sat, :lig,
+                            :deadline, :code, :wh, :th, CAST(:res AS jsonb), CAST(:sba AS jsonb), CAST(:lie AS jsonb))
+                """), {
+                    "id": track_id, "uid": current_user.id,
+                    "name": t_data.get("name", "Untitled Track"),
+                    "icon": "📚", "color": color, "phase": "Phase I",
+                    "order": max_order + 1 + ti,
+                    "hue": h, "sat": s, "lig": l,
+                    "deadline": deadline_val,
+                    "code": t_data.get("code"),
+                    "wh": t_data.get("weekly_hours"),
+                    "th": t_data.get("total_hours"),
+                    "res": json.dumps(t_data.get("resources", {})),
+                    "sba": json.dumps(t_data.get("smartan_builder_alignment", [])),
+                    "lie": json.dumps(t_data.get("live_industry_experiences", []))
+                })
+
+                for ci, c_data in enumerate(t_data.get("courses", [])):
+                    course_id = generate_id("c")
+                    db.execute(sqltext("""
+                        INSERT INTO courses (id, "trackId", name, "order", "createdAt", deadline, deliverable, spans_weeks, reference)
+                        VALUES (:id, :tid, :name, :order, now(), :deadline, :deliv, :spans, :ref)
+                    """), {
+                        "id": course_id, "tid": track_id,
+                        "name": c_data.get("name", "Untitled Course"),
+                        "order": ci,
+                        "deadline": c_data.get("deadline"),
+                        "deliv": c_data.get("deliverable"),
+                        "spans": c_data.get("spans_weeks"),
+                        "ref": c_data.get("reference")
+                    })
+
+                    for mi, m_data in enumerate(c_data.get("modules", [])):
+                        module_id = generate_id("m")
+                        db.execute(sqltext("""
+                            INSERT INTO modules (id, "courseId", title, type, status, "order", "createdAt",
+                                                deadline, source, day, task, description, due_by_week)
+                            VALUES (:id, :cid, :title, 'reading', 'todo', :order, now(),
+                                    :deadline, 'imported', :day, :task, :desc, :dbw)
+                        """), {
+                            "id": module_id, "cid": course_id,
+                            "title": m_data.get("name") or m_data.get("title", "Untitled Module"),
+                            "order": mi,
+                            "deadline": m_data.get("deadline"),
+                            "day": m_data.get("day"),
+                            "task": m_data.get("task"),
+                            "desc": m_data.get("description"),
+                            "dbw": m_data.get("due_by_week")
+                        })
+
+            # Mark import confirmed
+            db.execute(sqltext("""
+                UPDATE curriculum_imports SET status = 'confirmed', confirmed_at = now()
+                WHERE id = :id AND user_id = :uid
+            """), {"id": import_id, "uid": current_user.id})
+
+            db.commit()
+        except Exception as dbe:
+            db.rollback()
+            logger.exception("Database error during curriculum confirmation")
+            raise HTTPException(status_code=500, detail=f"Database error importing curriculum: {str(dbe)}")
+
+        return {"status": "confirmed", "message": "Curriculum imported successfully"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Unexpected error in confirm_curriculum_import")
+        raise HTTPException(status_code=500, detail="An unexpected server error occurred while confirming the curriculum.")
+
+
+@router_curriculum.delete("/{import_id}")
+def discard_curriculum_import(
+    import_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    from sqlalchemy import text as sqltext
+    import logging
+
+    logger = logging.getLogger(__name__)
+    try:
+        db.execute(sqltext("""
+            UPDATE curriculum_imports SET status = 'discarded'
+            WHERE id = :id AND user_id = :uid
+        """), {"id": import_id, "uid": current_user.id})
+        db.commit()
+        return {"status": "discarded"}
+    except Exception as e:
+        db.rollback()
+        logger.exception("Unexpected error in discard_curriculum_import")
+        raise HTTPException(status_code=500, detail="An unexpected server error occurred while discarding the curriculum.")
+
+
+# --- PUSH SCHEDULE FORWARD ENDPOINT ---
+@router_tracks.post("/push-schedule")
+def push_schedule_forward(
+    payload: dict,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Shift all future incomplete imported modules for this user forward by N days."""
+    from sqlalchemy import text as sqltext
+    import datetime
+
+    days = int(payload.get("days", 0))
+    if days <= 0 or days > 365:
+        raise HTTPException(status_code=400, detail="days must be between 1 and 365")
+
+    today_str = datetime.date.today().isoformat()
+
+    db.execute(sqltext("""
+        UPDATE modules SET deadline = deadline + :days
+        WHERE "courseId" IN (
+            SELECT c.id FROM courses c
+            JOIN tracks t ON c."trackId" = t.id
+            WHERE t."userId" = :uid
+        )
+        AND deadline >= :today
+        AND "completedAt" IS NULL
+        AND source = 'imported'
+    """), {"days": days, "uid": current_user.id, "today": today_str})
+    db.commit()
+    return {"message": f"Pushed {days} day(s) forward for all future incomplete imported modules"}
+
+
 app.include_router(router_auth)
 app.include_router(router_settings)
 app.include_router(router_tracks)
@@ -1992,6 +2721,8 @@ app.include_router(router_calendar)
 app.include_router(router_resources)
 app.include_router(router_analytics)
 app.include_router(router_dashboard)
+app.include_router(router_due)
+app.include_router(router_curriculum)
 
 @app.get("/api/dashboard/summary")
 def get_api_dashboard_summary_fallback(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -2923,6 +3654,9 @@ app.include_router(router_calendar)
 app.include_router(router_resources)
 app.include_router(router_analytics)
 app.include_router(router_dashboard)
+app.include_router(router_due)
+app.include_router(router_curriculum)
 app.include_router(router_admin)
 app.include_router(router_notifications)
+
 

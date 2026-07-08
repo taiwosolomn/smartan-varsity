@@ -162,6 +162,13 @@ class TrackResponse(BaseModel):
     icon_value: Optional[str] = None
     icon_image_url: Optional[str] = None
     icon_thumb_url: Optional[str] = None
+    deadline: Optional[Any] = None
+    code: Optional[str] = None
+    weekly_hours: Optional[float] = None
+    total_hours: Optional[float] = None
+    track_resources: Optional[dict] = None
+    smartan_builder_alignment: Optional[list] = None
+    live_industry_experiences: Optional[list] = None
 
     class Config:
         from_attributes = True

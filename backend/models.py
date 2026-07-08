@@ -1,6 +1,6 @@
 import datetime
 import uuid
-from sqlalchemy import Column, String, Integer, Boolean, DateTime, ForeignKey, Text
+from sqlalchemy import Column, String, Integer, Boolean, DateTime, ForeignKey, Text, Float
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
 from database import Base
@@ -50,6 +50,13 @@ class Track(Base):
     icon_value     = Column(Text, nullable=True)            # emoji char, library icon ID, or upload URL
     icon_image_url = Column(Text, nullable=True)            # full-size uploaded image URL
     icon_thumb_url = Column(Text, nullable=True)            # 48 px thumbnail URL
+    deadline                  = Column(String, nullable=True)
+    code                      = Column(String, nullable=True)
+    weekly_hours              = Column(Float, nullable=True)
+    total_hours               = Column(Float, nullable=True)
+    track_resources           = Column(JSONB, nullable=True)
+    smartan_builder_alignment = Column(JSONB, nullable=True)
+    live_industry_experiences = Column(JSONB, nullable=True)
 
     # Relationships
     user            = relationship("User",    back_populates="tracks")
