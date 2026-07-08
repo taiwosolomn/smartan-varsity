@@ -197,18 +197,22 @@ export default function ReviewCurriculum() {
     setConfirming(true);
     setConfirmError('');
     try {
-      // Optimistic: show success immediately
-      setConfirmed(true);
       await api.post(`/curriculum-imports/${importId}/confirm`);
-      // Invalidate tracks cache
+      // Clear ALL frontend caches so every page shows fresh data immediately
       try {
         localStorage.removeItem('sv_tracks_cache');
         localStorage.removeItem('sv_tracks_cache_timestamp');
         localStorage.removeItem('sv_dashboard_cache');
         localStorage.removeItem('sv_dashboard_cache_timestamp');
+        localStorage.removeItem('sv_cal_tracks');
+        localStorage.removeItem('sv_cal_tracks_ts');
+        localStorage.removeItem('sv_cal_months');
+        localStorage.removeItem('sv_trackview_cache');
+        localStorage.removeItem('sv_trackview_cache_ts');
       } catch (e) {}
+      // Only show success AFTER API confirmed data is written
+      setConfirmed(true);
     } catch (err) {
-      setConfirmed(false);
       const detail = err?.response?.data?.detail;
       if (detail?.validation_errors) {
         setErrors(detail.validation_errors);
@@ -416,22 +420,22 @@ export default function ReviewCurriculum() {
 
                 {(track.courses || []).map((course, ci) => {
                   const courseKey = `${ti}-${ci}`;
-                  const isCourseExp = expandedCourses[courseKey] !== true; // default collapsed
+                  const isCourseExpanded = expandedCourses[courseKey] === true; // default collapsed
 
                   return (
                     <div key={ci} style={{ borderLeft: '3px solid var(--phbar-bg)', paddingLeft: '16px' }}>
                       {/* Course header */}
                       <div
-                        onClick={() => setExpandedCourses(p => ({ ...p, [courseKey]: !isCourseExp }))}
+                        onClick={() => setExpandedCourses(p => ({ ...p, [courseKey]: !isCourseExpanded }))}
                         style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', paddingBottom: '8px', userSelect: 'none' }}
                       >
-                        {isCourseExp ? <IconChevronRight size={14} style={{ color: 'var(--text-muted)', flexShrink: 0 }} /> : <IconChevronDown size={14} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />}
+                        {isCourseExpanded ? <IconChevronDown size={14} style={{ color: 'var(--text-muted)', flexShrink: 0 }} /> : <IconChevronRight size={14} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />}
                         <span style={{ font: '800 13.5px Urbanist', color: 'var(--text)', flex: 1 }}>
-                          <EditableField
-                            value={course.name}
-                            onSave={v => updateCurriculum(d => { d.lms_export.tracks[ti].courses[ci].name = v; return d; })}
-                            style={{ font: '800 13.5px Urbanist' }}
-                          />
+                           <EditableField
+                             value={course.name}
+                             onSave={v => updateCurriculum(d => { d.lms_export.tracks[ti].courses[ci].name = v; return d; })}
+                             style={{ font: '800 13.5px Urbanist' }}
+                           />
                         </span>
                         {course.deadline && (
                           <span style={{ font: '600 11px Urbanist', color: 'var(--text-muted)' }}>
@@ -447,7 +451,7 @@ export default function ReviewCurriculum() {
                       <ValidationBadge errors={errors} field={`tracks[${track.id}].courses[${course.id}`} />
 
                       {/* Modules (shown when course is expanded) */}
-                      {!isCourseExp && (
+                      {isCourseExpanded && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingLeft: '22px', marginTop: '4px' }}>
                           {(course.modules || []).map((mod, mi) => (
                             <div key={mi} style={{

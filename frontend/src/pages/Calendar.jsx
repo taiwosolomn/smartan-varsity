@@ -97,14 +97,27 @@ export default function Calendar() {
     return t.color;
   };
 
-  // Helper to parse recurrence metadata from topic name
+  // Helper to parse recurrence metadata and strip redundant prefixes
   const parseTopic = (rawTopic) => {
-    if (!rawTopic) return { displayTopic: '', seriesId: null };
-    const match = rawTopic.match(/(.*?)\s*\[rec:(series_[a-zA-Z0-9]+)\]$/);
-    if (match) {
-      return { displayTopic: match[1], seriesId: match[2] };
+    if (!rawTopic) return { displayTopic: '', seriesId: null, isDeadline: false };
+    
+    let clean = rawTopic;
+    let isDeadline = false;
+    
+    // Strip "Deadline: " prefix
+    if (clean.startsWith('Deadline: ')) {
+      clean = clean.substring(10);
+      isDeadline = true;
     }
-    return { displayTopic: rawTopic, seriesId: null };
+    
+    // Strip day name prefix like "Mon - " or "Mon  "
+    clean = clean.replace(/^(Mon|Tue|Wed|Thu|Fri|Sat|Sun|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\s*[-•|:—]?\s*/i, '');
+    
+    const match = clean.match(/(.*?)\s*\[rec:(series_[a-zA-Z0-9]+)\]$/);
+    if (match) {
+      return { displayTopic: match[1], seriesId: match[2], isDeadline };
+    }
+    return { displayTopic: clean, seriesId: null, isDeadline };
   };
 
   // Fetch initial tracks — with localStorage SWR
@@ -1021,43 +1034,48 @@ export default function Calendar() {
                       );
                     } else {
                       // Planned events style
-                      const { displayTopic, seriesId } = parseTopic(item.topic);
+                      const { displayTopic, seriesId, isDeadline } = parseTopic(item.topic);
                       return (
                         <div 
                           key={item.id} 
                           className={`event-pill ${deletingIds.includes(item.id) ? 'pill-deleting' : ''}`}
                           role="link"
-                          tabIndex={0}
+                          tabIndex={isDeadline ? -1 : 0}
                           style={{ 
-                            background: trackColorHex ? `${trackColorHex}0f` : 'var(--input-bg)',
-                            borderLeft: `3px dashed ${trackColorHex}`,
-                            color: 'var(--event-pill-planned-color)',
+                            background: isDeadline ? `${trackColorHex}15` : (trackColorHex ? `${trackColorHex}0f` : 'var(--input-bg)'),
+                            borderLeft: isDeadline ? `3px solid ${trackColorHex}` : `3px dashed ${trackColorHex}`,
+                            color: isDeadline ? 'var(--text)' : 'var(--event-pill-planned-color)',
                             padding: '3px 6px',
                             borderRadius: '4px',
-                            font: '600 11px Urbanist',
+                            font: isDeadline ? '700 10.5px Urbanist' : '600 11px Urbanist',
                             whiteSpace: 'nowrap',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                             transition: 'opacity 0.15s ease',
                             display: 'flex',
                             alignItems: 'center',
-                            justifyContent: 'space-between'
+                            justifyContent: 'space-between',
+                            cursor: isDeadline ? 'default' : 'pointer'
                           }}
-                          aria-label={`planned: ${displayTopic}, track: ${tr?.name || 'unknown'}, duration: ${item.duration} minutes`}
+                          aria-label={isDeadline ? `deadline: ${displayTopic}, track: ${tr?.name || 'unknown'}` : `planned: ${displayTopic}, track: ${tr?.name || 'unknown'}, duration: ${item.duration} minutes`}
                           onMouseEnter={(e) => handlePillMouseEnter(e, { ...item, topic: displayTopic, trackName: tr?.name, trackColor: trackColorHex })}
                           onMouseLeave={() => setHoveredEvent(null)}
                           onClick={(e) => {
                             e.stopPropagation();
-                            openPlanSession('', item);
+                            if (!isDeadline) {
+                              openPlanSession('', item);
+                            }
                           }}
                           onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
+                            if (e.key === 'Enter' && !isDeadline) {
                               e.stopPropagation();
                               openPlanSession('', item);
                             }
                           }}
                         >
-                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayTopic}</span>
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {isDeadline ? `📅 ${displayTopic}` : displayTopic}
+                          </span>
                           {seriesId && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.8 }}><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>}
                         </div>
                       );
@@ -1143,22 +1161,23 @@ export default function Calendar() {
               ].map((item, idx) => {
                 const tr = tracks.find(x => x.id === item.trackId);
                 const isLog = item.type === 'log';
-                const { displayTopic, seriesId } = parseTopic(item.topic);
+                const { displayTopic, seriesId, isDeadline } = parseTopic(item.topic);
 
                 return (
                   <div 
                     key={idx}
                     style={{
-                      borderLeft: `4px ${isLog ? 'solid' : 'dashed'} ${getTrackColor(tr)}`,
+                      borderLeft: `4px ${isLog ? 'solid' : (isDeadline ? 'solid' : 'dashed')} ${getTrackColor(tr)}`,
                       background: 'var(--input-bg)',
                       padding: '12px',
                       borderRadius: '6px',
                       display: 'flex',
                       justifyContent: 'space-between',
                       alignItems: 'center',
-                      cursor: 'pointer'
+                      cursor: isDeadline ? 'default' : 'pointer'
                     }}
                     onClick={() => {
+                      if (isDeadline) return;
                       setIsDayViewOpen(false);
                       if (isLog) {
                         handleOpenLogDetails(item);
@@ -1172,12 +1191,13 @@ export default function Calendar() {
                         {tr?.name}
                       </div>
                       <div style={{ font: '700 13.5px Urbanist', color: 'var(--text)', margin: '3px 0' }}>
-                        {isLog ? '✓ ' : ''}{displayTopic}
+                        {isLog ? '✓ ' : (isDeadline ? '📅 ' : '')}{displayTopic}
                       </div>
                       <div style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', gap: '10px' }}>
-                        <span>⏱️ {item.duration} mins</span>
-                        {item.time && <span>⏰ {item.time}</span>}
+                        {!isDeadline && <span>⏱️ {item.duration} mins</span>}
+                        {!isDeadline && item.time && <span>⏰ {item.time}</span>}
                         {isLog && <span>⭐ {item.rating}/10</span>}
+                        {isDeadline && <span>🏁 Module Deadline</span>}
                       </div>
                     </div>
                     {seriesId && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6 }}><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>}

@@ -119,8 +119,14 @@ try {
 }
 
 export default function Tracks() {
+  // Clear in-memory cache if localStorage is cleared (e.g. on confirm or logout)
+  if (tracksCache && !localStorage.getItem('sv_tracks_cache')) {
+    tracksCache = null;
+    tracksCacheTimestamp = 0;
+  }
+
   const [tracks, setTracks] = useState(tracksCache || []);
-  const [loading, setLoading] = useState(!tracksCache);
+  const [loading, setLoading] = useState(!tracksCache || tracksCache.length === 0);
   const [filter, setFilter] = useState('all'); // all, active, complete
   const [view, setView] = useState('grid'); // grid, list
   
@@ -645,8 +651,14 @@ export default function Tracks() {
                       {t.phase}
                     </div>
 
-                    <div className="track-card-meta" style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '8px' }}>
-                      {t.courses?.length || 0} courses · {p.done} of {p.total} modules complete
+                    <div className="track-card-meta" style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <div>{t.courses?.length || 0} courses · {p.done} of {p.total} modules complete</div>
+                      {t.deadline && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--accent, #E5A83C)', fontWeight: 700, fontSize: '11.5px', marginTop: '2px' }}>
+                          <IconCalendar size={12} />
+                          Ends: {new Date(t.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })}
+                        </div>
+                      )}
                     </div>
 
                     <div className="phbar" style={{ height: '6px', background: 'var(--input-bg)', marginTop: '12px', borderRadius: '999px', overflow: 'hidden' }}>
@@ -687,8 +699,14 @@ export default function Tracks() {
                   </div>
                   <div className="track-list-info" style={{ marginLeft: '16px', flex: 1 }}>
                     <div className="track-list-name" style={{ font: '800 14px Urbanist', color: 'var(--text)' }}>{t.name}</div>
-                    <div className="track-list-meta" style={{ font: '600 12px Urbanist', color: 'var(--text-muted)', marginTop: '2px' }}>
-                      {t.phase} · {t.courses?.length || 0} courses · {p.done} of {p.total} modules complete
+                    <div className="track-list-meta" style={{ font: '600 12px Urbanist', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <span>{t.phase} · {t.courses?.length || 0} courses · {p.done} of {p.total} modules complete</span>
+                      {t.deadline && (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: 'var(--accent, #E5A83C)', fontWeight: 700 }}>
+                          <IconCalendar size={12} />
+                          Ends: {new Date(t.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })}
+                        </span>
+                      )}
                     </div>
                     <div className="phbar" style={{ width: '100%', maxWidth: '300px', height: '5px', background: 'var(--input-bg)', marginTop: '8px' }}>
                       <div className="progress-fill" style={{ width: `${p.pct}%`, background: t.color }}></div>

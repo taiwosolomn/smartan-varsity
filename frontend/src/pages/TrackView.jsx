@@ -598,8 +598,14 @@ export default function TrackView() {
               <div>
                 <span className="track-hero-label">{track.phase} · Self-directed</span>
                 <h1 className="track-hero-title">{track.name}</h1>
-                <div style={{ font: '600 13px Urbanist', color: 'var(--text-muted)', marginTop: '4px' }}>
-                  {track.courses?.length || 0} courses · {p.done} of {p.total} modules complete
+                <div style={{ font: '600 13px Urbanist', color: 'var(--text-muted)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <span>{track.courses?.length || 0} courses · {p.done} of {p.total} modules complete</span>
+                  {track.deadline && (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: 'var(--accent, #E5A83C)', fontWeight: 700 }}>
+                      <IconCalendar size={12} />
+                      Ends: {new Date(track.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -663,8 +669,14 @@ export default function TrackView() {
                 >
                   <div>
                     <h3 className="course-card-title">{course.name}</h3>
-                    <div className="course-card-meta">
-                      {cp.done} of {cp.total} modules complete {course.deadline && ` · Due ${new Date(course.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })}`}
+                    <div className="course-card-meta" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '3px' }}>
+                      <span>{cp.done} of {cp.total} modules complete</span>
+                      {course.deadline && (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: 'var(--accent, #E5A83C)', fontWeight: 700 }}>
+                          <IconCalendar size={12} />
+                          Due: {new Date(course.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })}
+                        </span>
+                      )}
                     </div>
                     <div className="phbar" style={{ width: '140px', marginTop: '6px' }}>
                       <div className="progress-fill" style={{ width: `${cp.pct}%`, background: track.color }}></div>
@@ -763,6 +775,19 @@ export default function TrackView() {
                         </div>
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          {m.day && (
+                            <span 
+                              style={{ 
+                                font: '800 11px Urbanist', 
+                                color: 'var(--text-muted)', 
+                                textTransform: 'uppercase', 
+                                letterSpacing: '0.5px',
+                                marginRight: '4px'
+                              }}
+                            >
+                              {m.day}
+                            </span>
+                          )}
                           {m.status === 'done' && <span className="module-row-status done">✓ Done</span>}
                           {m.status === 'inprogress' && <span className="module-row-status inprogress">In progress</span>}
                           {m.status === 'todo' && <span className="module-row-status todo">To do</span>}
