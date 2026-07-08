@@ -26,6 +26,14 @@ try {
   }
 } catch (e) {}
 
+const toLocalYYYYMMDD = (date) => {
+  if (!date) return '';
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
 export default function Calendar() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [tracks, setTracks] = useState([]);
@@ -253,7 +261,7 @@ export default function Calendar() {
       // Create mode
       setEditingEventId(null);
       setTopic('');
-      setPlanDate(dateStr || new Date().toISOString().slice(0, 10));
+      setPlanDate(dateStr || toLocalYYYYMMDD(new Date()));
       setPlanTime('09:00');
       setDuration(90);
       setRepeatType('none');
@@ -287,7 +295,7 @@ export default function Calendar() {
 
     advanceDate(curr);
     while (curr <= limit) {
-      dates.push(curr.toISOString().slice(0, 10));
+      dates.push(toLocalYYYYMMDD(curr));
       advanceDate(curr);
     }
     return dates;
@@ -573,7 +581,7 @@ export default function Calendar() {
     const blob = new Blob([icsLines.join('\r\n')], { type: 'text/calendar;charset=utf-8' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `sta-calendar-export-${new Date().toISOString().slice(0, 10)}.ics`;
+    link.download = `sta-calendar-export-${toLocalYYYYMMDD(new Date())}.ics`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -651,7 +659,7 @@ export default function Calendar() {
   };
 
   const daysList = getCalendarDays();
-  const todayStr = now.toISOString().slice(0, 10);
+  const todayStr = toLocalYYYYMMDD(now);
   const isCurrentMonth = currentDate.getFullYear() === now.getFullYear() && currentDate.getMonth() === now.getMonth();
 
   return (
@@ -772,13 +780,13 @@ export default function Calendar() {
       <div className="mobile-only-calendar-list" style={{ display: 'none' }}>
         {daysList
           .filter(d => {
-            const dateStr = d.date.toISOString().slice(0, 10);
+            const dateStr = toLocalYYYYMMDD(d.date);
             const eventsCount = allEvents.filter(e => e.date === dateStr).length;
             const logsCount = allLogs.filter(l => l.date === dateStr).length;
             return !d.isOtherMonth && (eventsCount > 0 || logsCount > 0);
           })
           .map(d => {
-            const dateStr = d.date.toISOString().slice(0, 10);
+            const dateStr = toLocalYYYYMMDD(d.date);
             const isToday = dateStr === todayStr;
             const dayEvents = allEvents.filter(e => e.date === dateStr);
             const dayLogs = allLogs.filter(l => l.date === dateStr);
@@ -868,7 +876,7 @@ export default function Calendar() {
             );
           })}
         {daysList.filter(d => {
-          const dateStr = d.date.toISOString().slice(0, 10);
+          const dateStr = toLocalYYYYMMDD(d.date);
           return !d.isOtherMonth && (allEvents.some(e => e.date === dateStr) || allLogs.some(l => l.date === dateStr));
         }).length === 0 && (
           <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)', fontWeight: '600' }}>
@@ -913,7 +921,7 @@ export default function Calendar() {
           }}
         >
           {daysList.map(({ date, isOtherMonth }, index) => {
-            const dateKey = date.toISOString().slice(0, 10);
+            const dateKey = toLocalYYYYMMDD(date);
             const isToday = dateKey === todayStr;
             const isWeekend = date.getDay() === 0 || date.getDay() === 6;
             
@@ -925,7 +933,7 @@ export default function Calendar() {
               ...eventsOnDate.map(e => ({ ...e, itemType: 'planned' }))
             ];
             
-            const displayLimit = 2;
+            const displayLimit = 3;
             const visibleItems = cellItems.slice(0, displayLimit);
             const overflowCount = cellItems.length - displayLimit;
 
@@ -937,7 +945,7 @@ export default function Calendar() {
                 key={index} 
                 style={{ 
                   background: isToday ? 'rgba(229, 168, 60, 0.03)' : 'var(--card-bg)', 
-                  minHeight: '100px', 
+                  minHeight: '110px', 
                   padding: '8px', 
                   cursor: 'pointer',
                   display: 'flex',
@@ -945,6 +953,8 @@ export default function Calendar() {
                   gap: '4px',
                   opacity: isOtherMonth ? 0.3 : 1,
                   position: 'relative',
+                  minWidth: 0,
+                  overflow: 'hidden',
                   outline: focusedCellIndex === index ? '2px solid var(--accent, #E5A83C)' : 'none'
                 }}
                 onKeyDown={(e) => handleKeyDown(e, index, dateKey)}
@@ -1009,10 +1019,11 @@ export default function Calendar() {
                             color: 'var(--event-pill-color)',
                             padding: '3px 6px',
                             borderRadius: '4px',
-                            font: '700 11px Urbanist',
-                            whiteSpace: 'nowrap',
+                            font: '700 10.5px Urbanist',
+                            whiteSpace: 'normal',
+                            wordBreak: 'break-word',
+                            lineHeight: '1.35',
                             overflow: 'hidden',
-                            textOverflow: 'ellipsis',
                             transition: 'opacity 0.15s ease'
                           }}
                           aria-label={`logged: ${item.topic}, track: ${tr?.name || 'unknown'}, duration: ${item.duration} minutes`}
@@ -1047,14 +1058,16 @@ export default function Calendar() {
                             color: isDeadline ? 'var(--text)' : 'var(--event-pill-planned-color)',
                             padding: '3px 6px',
                             borderRadius: '4px',
-                            font: isDeadline ? '700 10.5px Urbanist' : '600 11px Urbanist',
-                            whiteSpace: 'nowrap',
+                            font: isDeadline ? '700 10px Urbanist' : '600 10.5px Urbanist',
+                            whiteSpace: 'normal',
+                            wordBreak: 'break-word',
+                            lineHeight: '1.35',
                             overflow: 'hidden',
-                            textOverflow: 'ellipsis',
                             transition: 'opacity 0.15s ease',
                             display: 'flex',
-                            alignItems: 'center',
+                            alignItems: 'flex-start',
                             justifyContent: 'space-between',
+                            gap: '4px',
                             cursor: isDeadline ? 'default' : 'pointer'
                           }}
                           aria-label={isDeadline ? `deadline: ${displayTopic}, track: ${tr?.name || 'unknown'}` : `planned: ${displayTopic}, track: ${tr?.name || 'unknown'}, duration: ${item.duration} minutes`}
@@ -1073,7 +1086,7 @@ export default function Calendar() {
                             }
                           }}
                         >
-                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <span style={{ overflow: 'hidden', wordBreak: 'break-word', flex: 1 }}>
                             {isDeadline ? `📅 ${displayTopic}` : displayTopic}
                           </span>
                           {seriesId && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.8 }}><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>}

@@ -1,6 +1,6 @@
 import datetime
 import uuid
-from sqlalchemy import Column, String, Integer, Boolean, DateTime, ForeignKey, Text, Float
+from sqlalchemy import Column, String, Integer, Boolean, DateTime, ForeignKey, Text, Float, Date
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
 from database import Base
@@ -40,7 +40,7 @@ class Track(Base):
     name           = Column(String, nullable=False)
     icon           = Column(String, default="📚")
     color          = Column(String, default="#cc3333")
-    phase          = Column(String, default="Phase I")
+    phase          = Column(String, default="Semester 1")
     order          = Column(Integer, default=0)
     createdAt      = Column(DateTime(timezone=True), default=datetime.datetime.utcnow)
     hslHue         = Column(Integer, nullable=True)
@@ -70,11 +70,15 @@ class Track(Base):
 class Course(Base):
     __tablename__ = "courses"
 
-    id        = Column(String, primary_key=True, index=True)
-    trackId   = Column(String, ForeignKey("tracks.id", ondelete="CASCADE"), nullable=False, index=True)
-    name      = Column(String, nullable=False)
-    order     = Column(Integer, default=0)
-    createdAt = Column(DateTime(timezone=True), default=datetime.datetime.utcnow)
+    id          = Column(String, primary_key=True, index=True)
+    trackId     = Column(String, ForeignKey("tracks.id", ondelete="CASCADE"), nullable=False, index=True)
+    name        = Column(String, nullable=False)
+    order       = Column(Integer, default=0)
+    deadline    = Column(Date, nullable=True)
+    deliverable = Column(String, nullable=True)
+    spans_weeks = Column(String, nullable=True)
+    reference   = Column(String, nullable=True)
+    createdAt   = Column(DateTime(timezone=True), default=datetime.datetime.utcnow)
 
     # Relationships
     track   = relationship("Track",  back_populates="courses")
@@ -92,6 +96,11 @@ class Module(Base):
     order       = Column(Integer, default=0)
     notes       = Column(Text, nullable=True)
     completedAt = Column(DateTime(timezone=True), nullable=True)
+    deadline    = Column(Date, nullable=True)
+    day         = Column(String, nullable=True)
+    task        = Column(Text, nullable=True)
+    description = Column(Text, nullable=True)
+    due_by_week = Column(Integer, nullable=True)
     createdAt   = Column(DateTime(timezone=True), default=datetime.datetime.utcnow)
 
     # Relationships

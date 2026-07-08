@@ -63,7 +63,7 @@ export default function TrackView() {
   // editIconState: { type: 'emoji'|'image'|'library', value: string, imageUrl?: string, thumbUrl?: string }
   const [editIconState, setEditIconState] = useState({ type: 'emoji', value: '🧠', imageUrl: null, thumbUrl: null });
   const [editTrackColor, setEditTrackColor] = useState('');
-  const [editTrackPhase, setEditTrackPhase] = useState('');
+  const [editTrackSemester, setEditTrackSemester] = useState('');
 
   // Validation & shake animations
   const [allTracks, setAllTracks] = useState([]);
@@ -86,6 +86,7 @@ export default function TrackView() {
   const [isDeleteModuleOpen, setIsDeleteModuleOpen] = useState(false);
   const [deleteModuleId, setDeleteModuleId] = useState('');
   const [deleteModuleTitle, setDeleteModuleTitle] = useState('');
+  const [expandedModules, setExpandedModules] = useState({});
 
   const openEditTrack = () => {
     if (!track) return;
@@ -99,7 +100,7 @@ export default function TrackView() {
       thumbUrl: track.icon_thumb_url || null,
     });
     setEditTrackColor(track.color);
-    setEditTrackPhase(track.phase);
+    setEditTrackSemester(track.phase);
     setValErrors({ name: '', color: '', icon: '', combined: '' });
     setIsEditTrackOpen(true);
   };
@@ -121,7 +122,7 @@ export default function TrackView() {
         name:           editTrackName.trim(),
         icon:           iconDisplayVal,
         color:          editTrackColor,
-        phase:          editTrackPhase,
+        phase:          editTrackSemester,
         icon_type:      editIconState.type,
         icon_value:     iconDisplayVal,
         icon_image_url: editIconState.imageUrl || null,
@@ -330,8 +331,8 @@ export default function TrackView() {
 
   useEffect(() => {
     const loadData = async () => {
-      // Invalidate stale in-memory cache if localStorage was cleared (e.g. logout)
-      if (tvCache && tvCache[trackId] && !localStorage.getItem('sv_trackview_cache')) {
+      // Invalidate stale in-memory cache if localStorage was cleared (e.g. on confirm or logout)
+      if (!localStorage.getItem('sv_trackview_cache')) {
         tvCache = {};
         tvCacheTs = {};
       }
@@ -725,93 +726,125 @@ export default function TrackView() {
                     </button>
                   </div>
                 </div>
-                
                 {!isCollapsed && (
                   <div className="course-card-body">
-                    {course.modules.map(m => (
-                      <div key={m.id} className="module-row-item" id={`task-${m.id}`}>
-                        <div style={{ display: 'flex', alignItems: 'center' }}>
-                          <div className="module-row-icon-wrap">
-                            {m.type === 'reading' && <IconBook size={16} />}
-                            {m.type === 'video' && <IconPlayerPlay size={16} />}
-                            {m.type === 'drill' && <IconBolt size={16} />}
-                            {m.type === 'project' && <IconTools size={16} />}
-                            {m.type === 'assessment' && <IconCheckbox size={16} />}
-                            {m.type === 'note' && <IconFile size={16} />}
-                          </div>
-                          
-                          <div className="module-row-info">
-                            <div className="module-row-title" style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
-                              {m.deadline && (
+                    {course.modules.map(m => {
+                      const isExpanded = expandedModules[m.id] === true;
+                      return (
+                        <div key={m.id} style={{ borderBottom: '1px solid var(--rail-border)' }}>
+                          <div 
+                            className="module-row-item" 
+                            id={`task-${m.id}`}
+                            onClick={(e) => {
+                              if (e.target.closest('button') || e.target.closest('.module-row-status')) return;
+                              setExpandedModules(prev => ({ ...prev, [m.id]: !isExpanded }));
+                            }}
+                            style={{ cursor: 'pointer', borderBottom: 'none' }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0, marginRight: '16px' }}>
+                              <div className="module-row-icon-wrap" style={{ flexShrink: 0 }}>
+                                {m.type === 'reading' && <IconBook size={16} />}
+                                {m.type === 'video' && <IconPlayerPlay size={16} />}
+                                {m.type === 'drill' && <IconBolt size={16} />}
+                                {m.type === 'project' && <IconTools size={16} />}
+                                {m.type === 'assessment' && <IconCheckbox size={16} />}
+                                {m.type === 'note' && <IconFile size={16} />}
+                              </div>
+                              
+                              <div className="module-row-info" style={{ flex: 1, minWidth: 0, marginLeft: '12px' }}>
+                                <div className="module-row-title" style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap', font: '700 14px Urbanist', color: 'var(--text)' }}>
+                                  {m.deadline && (
+                                    <span 
+                                      style={{
+                                        font: '800 11px Urbanist',
+                                        color: 'var(--accent, #E5A83C)',
+                                        background: 'rgba(229, 168, 60, 0.08)',
+                                        border: '1px solid rgba(229, 168, 60, 0.18)',
+                                        borderRadius: '4px',
+                                        padding: '2px 6px',
+                                        marginRight: '4px',
+                                        textTransform: 'uppercase',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '3px',
+                                        flexShrink: 0
+                                      }}
+                                    >
+                                      <IconCalendar size={10} />
+                                      {m.day ? `${m.day.slice(0, 3)}, ` : ''}
+                                      {new Date(m.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })}
+                                    </span>
+                                  )}
+                                  <span>
+                                    {m.deadline
+                                      ? m.title.replace(/^(Mon|Tue|Wed|Thu|Fri|Sat|Sun|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\s*[-•|:—]?\s*/i, '')
+                                      : m.title}
+                                  </span>
+                                </div>
+                                <div className="module-row-type" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginTop: '2px' }}>
+                                  <span>{m.type}</span>
+                                  <span style={{ fontSize: '9px', opacity: 0.5, fontStyle: 'italic', textTransform: 'none' }}>
+                                    · {isExpanded ? 'Click to collapse' : 'Click to expand'}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+                              {m.day && (
                                 <span 
-                                  style={{
-                                    font: '800 11px Urbanist',
-                                    color: 'var(--accent, #E5A83C)',
-                                    background: 'rgba(229, 168, 60, 0.08)',
-                                    border: '1px solid rgba(229, 168, 60, 0.18)',
-                                    borderRadius: '4px',
-                                    padding: '2px 6px',
-                                    marginRight: '4px',
-                                    textTransform: 'uppercase',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '3px',
-                                    flexShrink: 0
+                                  style={{ 
+                                    font: '800 11px Urbanist', 
+                                    color: 'var(--text-muted)', 
+                                    textTransform: 'uppercase', 
+                                    letterSpacing: '0.5px',
+                                    marginRight: '4px'
                                   }}
                                 >
-                                  <IconCalendar size={10} />
-                                  {m.day ? `${m.day.slice(0, 3)}, ` : ''}
-                                  {new Date(m.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })}
+                                  {m.day}
                                 </span>
                               )}
-                              <span>
-                                {m.deadline
-                                  ? m.title.replace(/^(Mon|Tue|Wed|Thu|Fri|Sat|Sun|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\s*[-•|:—]?\s*/i, '')
-                                  : m.title}
-                              </span>
+                              {m.status === 'done' && <span className="module-row-status done">✓ Done</span>}
+                              {m.status === 'inprogress' && <span className="module-row-status inprogress">In progress</span>}
+                              {m.status === 'todo' && <span className="module-row-status todo">To do</span>}
+                              
+                              <button 
+                                className="iconbtn" 
+                                style={{ width: '32px', height: '32px', fontSize: '14px' }}
+                                onClick={() => cycleStatus(m.id, m.status)}
+                                title="Cycle status"
+                              >
+                                <IconRefresh size={14} />
+                              </button>
+                              
+                              <button 
+                                className="iconbtn" 
+                                style={{ width: '32px', height: '32px', fontSize: '14px', color: 'red' }}
+                                onClick={() => openDeleteModule(m.id, m.title)}
+                                title="Delete module"
+                              >
+                                <IconTrash size={14} />
+                              </button>
                             </div>
-                            <div className="module-row-type">{m.type}</div>
                           </div>
-                        </div>
-
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                          {m.day && (
-                            <span 
-                              style={{ 
-                                font: '800 11px Urbanist', 
-                                color: 'var(--text-muted)', 
-                                textTransform: 'uppercase', 
-                                letterSpacing: '0.5px',
-                                marginRight: '4px'
-                              }}
-                            >
-                              {m.day}
-                            </span>
+                          
+                          {isExpanded && (
+                            <div style={{ padding: '0 24px 16px 72px', font: '600 13px/1.6 Urbanist', color: 'var(--text-muted)' }}>
+                              <div style={{ color: 'var(--text)', fontWeight: 700, marginBottom: '6px' }}>Full Task Description:</div>
+                              <div style={{ background: 'var(--input-bg)', padding: '12px 16px', borderRadius: '8px', border: '1px solid var(--input-border)', color: 'var(--text)' }}>
+                                {m.task || m.description || "No description provided."}
+                              </div>
+                              {m.notes && (
+                                <div style={{ marginTop: '12px' }}>
+                                  <div style={{ color: 'var(--text)', fontWeight: 700, marginBottom: '4px' }}>Study Notes:</div>
+                                  <div style={{ fontStyle: 'italic' }}>{m.notes}</div>
+                                </div>
+                              )}
+                            </div>
                           )}
-                          {m.status === 'done' && <span className="module-row-status done">✓ Done</span>}
-                          {m.status === 'inprogress' && <span className="module-row-status inprogress">In progress</span>}
-                          {m.status === 'todo' && <span className="module-row-status todo">To do</span>}
-                          
-                          <button 
-                            className="iconbtn" 
-                            style={{ width: '32px', height: '32px', fontSize: '14px' }}
-                            onClick={() => cycleStatus(m.id, m.status)}
-                            title="Cycle status"
-                          >
-                            <IconRefresh size={14} />
-                          </button>
-                          
-                          <button 
-                            className="iconbtn" 
-                            style={{ width: '32px', height: '32px', fontSize: '14px', color: 'red' }}
-                            onClick={() => openDeleteModule(m.id, m.title)}
-                            title="Delete module"
-                          >
-                            <IconTrash size={14} />
-                          </button>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                     
                     <div style={{ padding: '16px 24px' }}>
                       <button 
@@ -1091,11 +1124,11 @@ export default function TrackView() {
                 </div>
 
                 <div>
-                  <label className="flabel">Phase</label>
+                  <label className="flabel">Semester</label>
                   <input 
                     className="field" 
-                    value={editTrackPhase}
-                    onChange={e => setEditTrackPhase(e.target.value)}
+                    value={editTrackSemester}
+                    onChange={e => setEditTrackSemester(e.target.value)}
                     required
                   />
                 </div>

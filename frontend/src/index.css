@@ -1697,7 +1697,26 @@ input:checked + .toggle-slider:before {
   }
 }
 
+/* ── Calendar grid: lock 7-column layout, prevent blowout ──── */
+.desktop-only-calendar-grid [role="grid"] {
+  grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+}
+.desktop-only-calendar-grid [role="gridcell"] {
+  min-width: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+/* Event pills: wrap text cleanly, no hard ellipsis cutoff */
+.event-pill {
+  white-space: normal !important;
+  word-break: break-word !important;
+  overflow: hidden !important;
+  text-overflow: unset !important;
+  line-height: 1.35 !important;
+}
+
 /* Navigation controls and other calendar styling additions */
+
 .cal-nav-btn {
   background: var(--btn-secondary-bg) !important;
   border: 1px solid var(--btn-secondary-border) !important;

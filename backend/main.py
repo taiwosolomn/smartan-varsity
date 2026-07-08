@@ -699,7 +699,7 @@ def import_user_data(data: dict, current_user: User = Depends(get_current_user),
             name=t_data.get("name"),
             icon=t_data.get("icon", "📚"),
             color=t_data.get("color", "#cc3333"),
-            phase=t_data.get("phase", "Phase I"),
+            phase=t_data.get("phase", "Semester 1"),
             order=t_data.get("order", 0),
             hslHue=h,
             hslSaturation=s,
@@ -973,7 +973,12 @@ def create_track(track_in: TrackCreate, current_user: User = Depends(get_current
 
 @router_tracks.get("/{track_id}", response_model=TrackDetailResponse)
 def get_track_detail(track_id: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    track = db.query(Track).filter(Track.id == track_id, Track.userId == current_user.id).first()
+    track = (
+        db.query(Track)
+        .filter(Track.id == track_id, Track.userId == current_user.id)
+        .options(selectinload(Track.courses).selectinload(Course.modules))
+        .first()
+    )
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
     return track
@@ -2589,7 +2594,7 @@ def confirm_curriculum_import(
                 """), {
                     "id": track_id, "uid": current_user.id,
                     "name": t_data.get("name", "Untitled Track"),
-                    "icon": "📚", "color": color, "phase": "Phase I",
+                    "icon": "📚", "color": color, "phase": "Semester 1",
                     "order": max_order + 1 + ti,
                     "hue": h, "sat": s, "lig": l,
                     "deadline": deadline_val,
@@ -3563,16 +3568,23 @@ def edit_admin_profile(payload: dict, current_admin: User = Depends(get_current_
 
 @router_admin.get("/smartans/{id}/tracks/{track_id}")
 def get_admin_student_track_detail(id: str, track_id: str, current_admin: User = Depends(get_current_admin), db: Session = Depends(get_db)):
-    from models import Track
+    from models import Track, Course
+    from sqlalchemy.orm import selectinload
     user = db.query(User).filter(User.id == id, User.role == "smartan").first()
     if not user:
         raise HTTPException(404, "Smartan not found")
 
-    track = db.query(Track).filter(Track.id == track_id, Track.userId == id).first()
+    track = (
+        db.query(Track)
+        .filter(Track.id == track_id, Track.userId == id)
+        .options(selectinload(Track.courses).selectinload(Course.modules))
+        .first()
+    )
     if not track:
         raise HTTPException(404, "Track not found")
     
     return track
+
 
 
 @router_admin.get("/smartans/{id}/sessions")

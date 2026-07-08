@@ -136,7 +136,7 @@ export default function Tracks() {
   // iconState: { type: 'emoji'|'image'|'library', value: string, imageUrl?: string, thumbUrl?: string }
   const [newIconState, setNewIconState] = useState({ type: 'emoji', value: '🧠', imageUrl: null, thumbUrl: null });
   const [newTrackColor, setNewTrackColor] = useState('#C25A3A');
-  const [newTrackPhase, setNewTrackPhase] = useState('Phase I');
+  const [newTrackSemester, setNewTrackSemester] = useState('Semester 1');
 
   // Push schedule states
   const [isPushModalOpen, setIsPushModalOpen] = useState(false);
@@ -324,7 +324,7 @@ export default function Tracks() {
         name:          newTrackName.trim(),
         icon:          iconDisplayVal,
         color:         newTrackColor,
-        phase:         newTrackPhase,
+        phase:         newTrackSemester,
         icon_type:     newIconState.type,
         icon_value:    iconDisplayVal,
       });
@@ -336,7 +336,7 @@ export default function Tracks() {
       setNewTrackName('');
       setNewIconState({ type: 'emoji', value: '🧠', imageUrl: null, thumbUrl: null });
       setNewTrackColor('#C25A3A');
-      setNewTrackPhase('Phase I');
+      setNewTrackSemester('Semester 1');
       setValErrors({ name: '', color: '', icon: '', combined: '' });
       setIsModalOpen(false);
       fetchTracks(true);
@@ -1031,14 +1031,14 @@ export default function Tracks() {
                 )}
               </div>
 
-              {/* PHASE */}
+              {/* SEMESTER */}
               <div>
-                <label className="flabel">Phase</label>
+                <label className="flabel">Semester</label>
                 <input 
                   className="field" 
-                  placeholder="Phase I"
-                  value={newTrackPhase}
-                  onChange={(e) => setNewTrackPhase(e.target.value)}
+                  placeholder="Semester 1"
+                  value={newTrackSemester}
+                  onChange={(e) => setNewTrackSemester(e.target.value)}
                 />
               </div>
 

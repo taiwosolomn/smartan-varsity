@@ -59,7 +59,7 @@ def seed_db(db: Session):
             name=t_data["name"],
             icon=t_data.get("icon", "🧠"),
             color=t_data.get("color", "#cc3333"),
-            phase=t_data.get("phase", "Phase I"),
+            phase=t_data.get("phase", "Semester 1"),
             order=0  # will order sequentially
         )
         db.add(track)

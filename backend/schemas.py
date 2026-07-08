@@ -131,7 +131,7 @@ class CourseResponse(BaseModel):
     modules: List[ModuleResponse] = []
     deadline: Optional[date] = None
     deliverable: Optional[str] = None
-    spans_weeks: Optional[int] = None
+    spans_weeks: Optional[str] = None
     reference: Optional[str] = None
 
     class Config:
@@ -142,7 +142,7 @@ class TrackCreate(BaseModel):
     name: str
     icon: Optional[str] = "📚"
     color: Optional[str] = "#cc3333"
-    phase: Optional[str] = "Phase I"
+    phase: Optional[str] = "Semester 1"
     icon_type: Optional[str] = "emoji"
     icon_value: Optional[str] = None
     icon_image_url: Optional[str] = None
