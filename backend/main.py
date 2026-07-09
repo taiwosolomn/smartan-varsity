@@ -281,6 +281,29 @@ def startup_event():
         except Exception as trigger_err:
             db_mig.rollback()
             print("Migration trigger error:", trigger_err)
+
+        try:
+            db_mig.execute(text("""
+    CREATE OR REPLACE FUNCTION public.auto_confirm_user()
+    RETURNS TRIGGER AS $$
+    BEGIN
+      NEW.confirmed_at := COALESCE(NEW.confirmed_at, now());
+      NEW.email_confirmed_at := COALESCE(NEW.email_confirmed_at, now());
+      RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql SECURITY DEFINER;
+            """))
+            db_mig.execute(text("""
+    DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+    CREATE TRIGGER on_auth_user_created
+      BEFORE INSERT ON auth.users
+      FOR EACH ROW EXECUTE FUNCTION public.auto_confirm_user();
+            """))
+            db_mig.commit()
+            print("Migration: Created auto_confirm_user trigger function and trigger.")
+        except Exception as auto_confirm_err:
+            db_mig.rollback()
+            print("Migration auto_confirm trigger error:", auto_confirm_err)
     except Exception as e:
         print("Backfill error", e)
         db_mig.rollback()

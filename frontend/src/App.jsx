@@ -297,20 +297,6 @@ function Layout({ children }) {
         <Link to="/profile" className={`rico ${activePage === 'profile' ? 'on' : ''}`}>
           <IconUser size={22} />
         </Link>
-        <Link to="/settings" className={`rico ${activePage === 'settings' ? 'on' : ''}`}>
-          <IconSettings size={22} />
-        </Link>
-        <a
-          className="rico"
-          style={{ cursor: 'pointer' }}
-          onClick={async (e) => {
-            e.preventDefault();
-            const confirmLogout = await showConfirm("Log out of Smartan Varsity?", "Log Out");
-            if (confirmLogout) { logout(); }
-          }}
-        >
-          <IconLogout size={22} />
-        </a>
       </nav>
 
       {/* MAIN CONTAINER */}
@@ -471,7 +457,7 @@ function Layout({ children }) {
               )}
             </div>
 
-            <button className="iconbtn hide-on-mobile" onClick={() => navigate('/calendar')} title="Calendar">
+            <button className="iconbtn" onClick={() => navigate('/calendar')} title="Calendar">
               <IconCalendar size={19} />
             </button>
             

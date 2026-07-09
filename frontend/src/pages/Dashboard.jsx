@@ -480,9 +480,11 @@ export default function Dashboard() {
                       <div style={{ font: '800 13px Urbanist', color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {mod.title}
                       </div>
-                      <div style={{ font: '600 11px Urbanist', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: mod.track_color }}></span>
-                        {mod.track_name} · {mod.course_name}
+                      <div style={{ font: '600 11px Urbanist', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+                        <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: mod.track_color, flexShrink: 0 }}></span>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {mod.track_name} · {mod.course_name}
+                        </span>
                       </div>
                     </div>
                     {isOverdueTask && (
@@ -565,9 +567,11 @@ export default function Dashboard() {
                       <div style={{ font: '800 13px Urbanist', color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {mod.title}
                       </div>
-                      <div style={{ font: '600 11px Urbanist', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: mod.track_color }}></span>
-                        {mod.track_name} · {mod.course_name}
+                      <div style={{ font: '600 11px Urbanist', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+                        <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: mod.track_color, flexShrink: 0 }}></span>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {mod.track_name} · {mod.course_name}
+                        </span>
                       </div>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px', flexShrink: 0 }}>
