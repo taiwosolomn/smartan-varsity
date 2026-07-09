@@ -537,6 +537,53 @@ def signout_everywhere(current_user: User = Depends(get_current_user)):
 
 @router_auth.delete("/delete-account")
 def delete_account(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    import urllib.request
+    import json
+    from sqlalchemy import text
+    
+    supabase_url = os.getenv("SUPABASE_URL", "")
+    service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+    
+    # 1 — Delete user from Supabase Auth using admin API
+    if supabase_url and service_key:
+        try:
+            url = f"{supabase_url}/auth/v1/admin/users/{current_user.auth_id}"
+            headers = {
+                "apikey": service_key,
+                "Authorization": f"Bearer {service_key}",
+                "Content-Type": "application/json"
+            }
+            req = urllib.request.Request(url, headers=headers, method="DELETE")
+            with urllib.request.urlopen(req) as res:
+                print(f"[Auth] Successfully deleted user {current_user.email} from Supabase Auth.")
+        except Exception as e:
+            print(f"[Auth] Failed to delete user {current_user.email} from Supabase Auth: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to delete Auth account: {e}")
+
+    # 2 — Clean up all related tables (dependencies) before deleting the user row
+    uid = current_user.id
+    db.execute(text("DELETE FROM calendar_events WHERE \"userId\" = :uid"), {"uid": uid})
+    db.execute(text("DELETE FROM session_logs WHERE \"userId\" = :uid"), {"uid": uid})
+    db.execute(text("DELETE FROM curriculum_imports WHERE user_id = :uid"), {"uid": uid})
+    db.execute(text("DELETE FROM module_overdue_flags WHERE user_id = :uid"), {"uid": uid})
+    db.execute(text("DELETE FROM engagement_flag_acknowledgements WHERE smartan_id = :uid OR admin_id = :uid"), {"uid": uid})
+    
+    # Track hierarchy cleanup
+    track_ids_res = db.execute(text("SELECT id FROM tracks WHERE \"userId\" = :uid"), {"uid": uid})
+    track_ids = [row[0] for row in track_ids_res]
+    for tid in track_ids:
+        course_ids_res = db.execute(text("SELECT id FROM courses WHERE \"trackId\" = :tid"), {"tid": tid})
+        course_ids = [row[0] for row in course_ids_res]
+        for cid in course_ids:
+            db.execute(text("DELETE FROM modules WHERE \"courseId\" = :cid"), {"cid": cid})
+        db.execute(text("DELETE FROM courses WHERE \"trackId\" = :tid"), {"tid": tid})
+    db.execute(text("DELETE FROM tracks WHERE \"userId\" = :uid"), {"uid": uid})
+    
+    db.execute(text("DELETE FROM notification_reads WHERE user_id = :uid"), {"uid": uid})
+    db.execute(text("DELETE FROM notifications WHERE recipient_id = :uid OR sender_id = :uid"), {"uid": uid})
+    db.execute(text("DELETE FROM settings WHERE \"userId\" = :uid"), {"uid": uid})
+
+    # 3 — Delete the user profile
     db.delete(current_user)
     db.commit()
     return {"message": "Account permanently deleted"}
