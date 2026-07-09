@@ -3,7 +3,9 @@ import axios from 'axios';
 import TrackIconRenderer from './components/TrackIconRenderer.jsx';
 import { supabase } from './supabaseClient';
 
-export const API_URL = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' ? `http://${window.location.hostname}:8000` : 'http://127.0.0.1:8000');
+const RAILWAY_URL = 'https://smartan-varsity-production.up.railway.app';
+const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+export const API_URL = import.meta.env.VITE_API_URL || (isLocalhost ? `http://localhost:8000` : RAILWAY_URL);
 
 const api = axios.create({
   baseURL: API_URL,
