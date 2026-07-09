@@ -93,6 +93,7 @@ function Layout({ children }) {
 
   const [notifications, setNotifications] = useState([]);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
 
   const fetchNotifications = async () => {
     try {
@@ -370,6 +371,7 @@ function Layout({ children }) {
                 className="iconbtn" 
                 onClick={() => {
                   setIsNotifOpen(!isNotifOpen);
+                  setIsProfileMenuOpen(false);
                   // Mark all unread notifications as read when opening the list
                   notifications.forEach(async (n) => {
                     if (!n.read) {
@@ -471,20 +473,116 @@ function Layout({ children }) {
               {theme === 'dark' ? <IconSun size={19} /> : <IconMoon size={19} />}
             </button>
             
-            <div 
-              className="iconbtn" 
-              onClick={() => navigate('/profile')} 
-              title="Profile" 
-              style={{ overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: 0 }}
-            >
-              {user?.avatarUrl ? (
-                <img 
-                  src={`${api.defaults.baseURL || ''}${user.avatarUrl}`} 
-                  alt="Avatar" 
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-                />
-              ) : (
-                <span style={{ fontWeight: 800 }}>{user?.fullName?.charAt(0) || 'U'}</span>
+            <div style={{ position: 'relative' }}>
+              <div 
+                className="iconbtn" 
+                onClick={() => {
+                  setIsProfileMenuOpen(!isProfileMenuOpen);
+                  setIsNotifOpen(false);
+                }} 
+                title="Profile Menu" 
+                style={{ overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: 0, cursor: 'pointer' }}
+              >
+                {user?.avatarUrl ? (
+                  <img 
+                    src={`${api.defaults.baseURL || ''}${user.avatarUrl}`} 
+                    alt="Avatar" 
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                  />
+                ) : (
+                  <span style={{ fontWeight: 800 }}>{user?.fullName?.charAt(0) || 'U'}</span>
+                )}
+              </div>
+              
+              {isProfileMenuOpen && (
+                <div 
+                  className="card"
+                  style={{
+                    position: 'absolute',
+                    top: '40px',
+                    right: 0,
+                    width: '200px',
+                    zIndex: 1000,
+                    boxShadow: 'var(--shadow)',
+                    border: '1px solid var(--input-border)',
+                    padding: '8px 0',
+                    display: 'flex',
+                    flexDirection: 'column',
+                  }}
+                >
+                  <div style={{ padding: '8px 16px', borderBottom: '1px solid var(--input-border)', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    <span style={{ font: '800 13px Urbanist', color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'left' }}>
+                      {user?.fullName || 'Smartan'}
+                    </span>
+                    <span style={{ font: '600 11px Urbanist', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'left' }}>
+                      {user?.email}
+                    </span>
+                  </div>
+                  
+                  <Link 
+                    to="/profile" 
+                    onClick={() => setIsProfileMenuOpen(false)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '10px 16px',
+                      color: 'var(--text)',
+                      font: '700 13px Urbanist',
+                      textDecoration: 'none',
+                      cursor: 'pointer',
+                    }}
+                    className="profile-dropdown-item"
+                  >
+                    <IconUser size={16} />
+                    <span>View Profile</span>
+                  </Link>
+
+                  <Link 
+                    to="/settings" 
+                    onClick={() => setIsProfileMenuOpen(false)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '10px 16px',
+                      color: 'var(--text)',
+                      font: '700 13px Urbanist',
+                      textDecoration: 'none',
+                      cursor: 'pointer',
+                    }}
+                    className="profile-dropdown-item"
+                  >
+                    <IconSettings size={16} />
+                    <span>Settings</span>
+                  </Link>
+
+                  <div style={{ height: '1px', background: 'var(--input-border)', margin: '4px 0' }} />
+
+                  <a 
+                    onClick={async (e) => {
+                      e.preventDefault();
+                      setIsProfileMenuOpen(false);
+                      const confirmLogout = await showConfirm("Log out of Smartan Varsity?", "Log Out");
+                      if (confirmLogout) {
+                        logout();
+                      }
+                    }} 
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '10px 16px',
+                      color: '#ef4444',
+                      font: '700 13px Urbanist',
+                      cursor: 'pointer',
+                    }}
+                    className="profile-dropdown-item"
+                  >
+                    <IconLogout size={16} />
+                    <span>Logout</span>
+                  </a>
+                </div>
               )}
             </div>
           </div>

@@ -1988,3 +1988,10 @@ input:checked + .toggle-slider:before {
   .stat-box { padding: 12px 14px; }
   body { font-size: 14px; }
 }
+
+.profile-dropdown-item {
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.profile-dropdown-item:hover {
+  background: var(--input-bg);
+}
