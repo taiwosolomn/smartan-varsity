@@ -3,7 +3,7 @@ import axios from 'axios';
 import TrackIconRenderer from './components/TrackIconRenderer.jsx';
 import { supabase } from './supabaseClient';
 
-export const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+export const API_URL = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' ? `http://${window.location.hostname}:8000` : 'http://127.0.0.1:8000');
 
 const api = axios.create({
   baseURL: API_URL,
@@ -138,6 +138,59 @@ export const renderActivityText = (a) => {
       return `${subject} had admin role revoked`;
     default:
       return `${actor} performed event ${a.eventType}`;
+  }
+};
+
+export const BLOOMS_TAXONOMY_SCALE = {
+  1: {
+    level: "Remember",
+    desc: "Remember: I can recall basic terms, definitions, and facts from the session.",
+    color: "#94a3b8" // Slate
+  },
+  2: {
+    level: "Remember",
+    desc: "Remember: I can identify key concepts and retrieve basic facts from memory.",
+    color: "#94a3b8"
+  },
+  3: {
+    level: "Understand",
+    desc: "Understand: I can explain the concept in my own words and grasp the basic idea of how it works.",
+    color: "#38bdf8" // Sky
+  },
+  4: {
+    level: "Understand",
+    desc: "Understand: I can summarize the concept and translate it to another context.",
+    color: "#38bdf8"
+  },
+  5: {
+    level: "Apply",
+    desc: "Apply: I used the concept practically (wrote code, ran commands, completed exercises).",
+    color: "#4ade80" // Green
+  },
+  6: {
+    level: "Apply",
+    desc: "Apply: I can successfully apply the concept to complete a standard task or assignment.",
+    color: "#4ade80"
+  },
+  7: {
+    level: "Analyze",
+    desc: "Analyze: I can break this down, reason about edge cases, and debug issues.",
+    color: "#facc15" // Yellow
+  },
+  8: {
+    level: "Analyze",
+    desc: "Analyze: I can see how this connects to other systems and compare different structural options.",
+    color: "#facc15"
+  },
+  9: {
+    level: "Evaluate",
+    desc: "Evaluate: I can judge, critique, or compare approaches — knowing not just how but why this approach vs. another.",
+    color: "#fb923c" // Orange
+  },
+  10: {
+    level: "Create",
+    desc: "Create: I can design/build something completely original, or teach the concept to others from first principles.",
+    color: "#f472b6" // Pink
   }
 };
 

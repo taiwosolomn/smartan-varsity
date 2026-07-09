@@ -526,11 +526,13 @@ function Layout({ children }) {
                       display: 'flex',
                       alignItems: 'center',
                       gap: '8px',
-                      padding: '10px 16px',
+                      padding: '8px 16px',
                       color: 'var(--text)',
                       font: '700 13px Urbanist',
                       textDecoration: 'none',
                       cursor: 'pointer',
+                      minHeight: '44px',
+                      boxSizing: 'border-box'
                     }}
                     className="profile-dropdown-item"
                   >
@@ -545,11 +547,13 @@ function Layout({ children }) {
                       display: 'flex',
                       alignItems: 'center',
                       gap: '8px',
-                      padding: '10px 16px',
+                      padding: '8px 16px',
                       color: 'var(--text)',
                       font: '700 13px Urbanist',
                       textDecoration: 'none',
                       cursor: 'pointer',
+                      minHeight: '44px',
+                      boxSizing: 'border-box'
                     }}
                     className="profile-dropdown-item"
                   >
@@ -572,10 +576,12 @@ function Layout({ children }) {
                       display: 'flex',
                       alignItems: 'center',
                       gap: '8px',
-                      padding: '10px 16px',
+                      padding: '8px 16px',
                       color: '#ef4444',
                       font: '700 13px Urbanist',
                       cursor: 'pointer',
+                      minHeight: '44px',
+                      boxSizing: 'border-box'
                     }}
                     className="profile-dropdown-item"
                   >

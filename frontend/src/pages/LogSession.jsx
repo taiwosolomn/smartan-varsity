@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
-import api from '../api';
+import api, { BLOOMS_TAXONOMY_SCALE } from '../api';
 import { IconCheck, IconQuestionMark, IconClock } from '@tabler/icons-react';
 
 // Custom reusable hoverable Track Pill component
@@ -983,32 +983,93 @@ export default function LogSession() {
 
             {/* MASTERY / QUALITY */}
             <div style={{ marginBottom: '28px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px' }}>
                 <label className="flabel" style={{ margin: 0 }}>SESSION QUALITY / MASTERY (1–10)</label>
                 <div className="tooltip-container">
                   <span className="tooltip-icon" tabIndex="0" aria-label="Help explaining session quality">
                     <IconQuestionMark size={13} style={{ border: '1.5px solid var(--text-muted)', borderRadius: '50%', padding: '1px' }} />
                   </span>
-                  <div className="tooltip-box">
-                    How deeply did this do this session? Score yourself honestly, not on hours spent, but on how well you could explain or apply what you covered right now.
+                  <div className="tooltip-box" style={{ width: '260px' }}>
+                    How deeply did you learn this session? Score yourself honestly, mapped to Bloom's Taxonomy cognitive hierarchy.
                   </div>
                 </div>
               </div>
-              <div className="mastery-row">
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(m => (
-                  <button
-                    key={m}
-                    type="button"
-                    className={`mastery-btn ${mastery === m ? 'sel' : ''}`}
-                    onClick={() => {
-                      if (mastery === m) setMastery(null); // Clicking deselects
-                      else setMastery(m);
-                    }}
-                  >
-                    {m}
-                  </button>
+              
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'stretch' }}>
+                {[
+                  { name: "Remember", range: [1, 2], color: "#94a3b8" },
+                  { name: "Understand", range: [3, 4], color: "#38bdf8" },
+                  { name: "Apply", range: [5, 6], color: "#4ade80" },
+                  { name: "Analyze", range: [7, 8], color: "#facc15" },
+                  { name: "Evaluate", range: [9], color: "#fb923c" },
+                  { name: "Create", range: [10], color: "#f472b6" }
+                ].map(group => (
+                  <div key={group.name} style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    background: 'rgba(255,255,255,0.015)',
+                    border: '1.5px solid var(--input-border)',
+                    borderRadius: '12px',
+                    padding: '8px 10px',
+                    gap: '8px',
+                    flex: '1 1 auto',
+                    minWidth: group.range.length === 1 ? '54px' : '98px',
+                    textAlign: 'center'
+                  }}>
+                    <span style={{ font: '900 9px Urbanist', color: group.color, letterSpacing: '0.6px', textTransform: 'uppercase' }}>
+                      {group.name}
+                    </span>
+                    <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                      {group.range.map(m => (
+                        <div key={m} className="tooltip-container" style={{ display: 'inline-block' }}>
+                          <button
+                            type="button"
+                            className={`mastery-btn ${mastery === m ? 'sel' : ''}`}
+                            onClick={() => {
+                              if (mastery === m) setMastery(null);
+                              else setMastery(m);
+                            }}
+                            style={{ margin: 0 }}
+                          >
+                            {m}
+                          </button>
+                          <div className="tooltip-box" style={{ bottom: '135%', width: '220px', textAlign: 'center', left: '50%', transform: 'translateX(-50%)' }}>
+                            {BLOOMS_TAXONOMY_SCALE[m].desc}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
+
+              {mastery && (
+                <div style={{
+                  marginTop: '16px',
+                  padding: '14px 16px',
+                  background: `${BLOOMS_TAXONOMY_SCALE[mastery].color}08`,
+                  border: `1.5px solid ${BLOOMS_TAXONOMY_SCALE[mastery].color}25`,
+                  borderRadius: '12px',
+                  textAlign: 'left'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                    <span style={{
+                      width: '8px',
+                      height: '8px',
+                      borderRadius: '50%',
+                      background: BLOOMS_TAXONOMY_SCALE[mastery].color,
+                      display: 'inline-block'
+                    }} />
+                    <span style={{ font: '900 12.5px Urbanist', color: BLOOMS_TAXONOMY_SCALE[mastery].color, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Level {mastery}: {BLOOMS_TAXONOMY_SCALE[mastery].level}
+                    </span>
+                  </div>
+                  <p style={{ font: '600 13px/1.45 Urbanist', color: 'var(--text-muted)', margin: 0 }}>
+                    {BLOOMS_TAXONOMY_SCALE[mastery].desc.replace(/^[a-zA-Z]+:\s*/, '')}
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* NOTES */}

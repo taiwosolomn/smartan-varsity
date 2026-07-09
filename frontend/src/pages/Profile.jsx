@@ -31,6 +31,7 @@ export default function Profile() {
   const [bestStreak, setBestStreak] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
   const [activeTab, setActiveTab] = useState('mission');
 
   // ── Edit form state ───────────────────────────────────────────────────────
@@ -81,8 +82,10 @@ export default function Profile() {
       setEditGoals(userRes.data.goals ? [...userRes.data.goals] : []);
       setLoading(false);
       setError(false);
+      setErrorMsg('');
     } catch (err) {
       console.error(err);
+      setErrorMsg(err.message || String(err));
       setError(true);
       setLoading(false);
     }
@@ -313,6 +316,7 @@ export default function Profile() {
     <div className="card" style={{ padding: '40px', display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'center', justifyContent: 'center' }}>
       <IconAlertCircle size={32} style={{ color: '#ef4444' }} />
       <span style={{ font: '600 14px Urbanist', color: 'var(--text-muted)' }}>Failed to load profile.</span>
+      {errorMsg && <span style={{ font: '600 12px Urbanist', color: '#ef4444', textAlign: 'center', maxWidth: '300px' }}>{errorMsg}</span>}
       <button className="pillbtn" onClick={() => { setLoading(true); fetchProfileData(); }}>Retry</button>
     </div>
   );
@@ -635,7 +639,14 @@ export default function Profile() {
                     </div>
                   </div>
                   <span style={{ font: '600 11.5px Urbanist', color: 'var(--text-muted)', flexShrink: 0 }}>
-                    {m.date ? new Date(m.date).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
+                    {m.date ? (() => {
+                      try {
+                        const d = new Date(m.date);
+                        return isNaN(d.getTime()) ? m.date : d.toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' });
+                      } catch (e) {
+                        return m.date || '—';
+                      }
+                    })() : '—'}
                   </span>
                 </div>
               ))
