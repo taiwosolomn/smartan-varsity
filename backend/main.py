@@ -1,4 +1,7 @@
 import os
+from dotenv import load_dotenv
+env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".env")
+load_dotenv(env_path)
 import uuid
 import datetime
 import shutil
