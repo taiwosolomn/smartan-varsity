@@ -5,7 +5,19 @@ import { supabase } from './supabaseClient';
 
 const RAILWAY_URL = 'https://smartan-varsity-production.up.railway.app';
 const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-export const API_URL = import.meta.env.VITE_API_URL || (isLocalhost ? `http://localhost:8000` : RAILWAY_URL);
+
+let resolvedApiUrl = import.meta.env.VITE_API_URL || '';
+
+// Force production builds on Vercel to use Railway backend even if Vercel has localhost hardcoded in settings
+if (typeof window !== 'undefined' && !isLocalhost) {
+  if (!resolvedApiUrl || resolvedApiUrl.includes('localhost') || resolvedApiUrl.includes('127.0.0.1')) {
+    resolvedApiUrl = RAILWAY_URL;
+  }
+} else if (isLocalhost && !resolvedApiUrl) {
+  resolvedApiUrl = 'http://localhost:8000';
+}
+
+export const API_URL = resolvedApiUrl;
 
 const api = axios.create({
   baseURL: API_URL,
