@@ -327,6 +327,8 @@ export default function Tracks() {
         phase:         newTrackSemester,
         icon_type:     newIconState.type,
         icon_value:    iconDisplayVal,
+        icon_image_url: newIconState.imageUrl,
+        icon_thumb_url: newIconState.thumbUrl,
       });
       window.dispatchEvent(new CustomEvent('show-success', {
         detail: { type: 'track_created' }
@@ -378,6 +380,11 @@ export default function Tracks() {
         localStorage.removeItem('sv_tracks_cache_timestamp');
         localStorage.removeItem('sv_dashboard_cache');
         localStorage.removeItem('sv_dashboard_cache_timestamp');
+        localStorage.removeItem('sv_cal_tracks');
+        localStorage.removeItem('sv_cal_tracks_ts');
+        localStorage.removeItem('sv_cal_months');
+        localStorage.removeItem('sv_trackview_cache');
+        localStorage.removeItem('sv_trackview_cache_ts');
       } catch (e) {}
       fetchTracks(true);
     } catch (err) {
@@ -585,9 +592,10 @@ export default function Tracks() {
                     aria-hidden="true"
                   >
                     {(() => {
-                      const isImage = t.icon_type === 'image' || (t.icon && (t.icon.startsWith('/') || t.icon.startsWith('http')));
-                      if (isImage && t.icon) {
-                        const imgUrl = t.icon.startsWith('http') ? t.icon : `${API_URL}${t.icon.startsWith('/') ? '' : '/'}${t.icon}`;
+                      const img = t.icon_image_url || t.icon_value || t.icon;
+                      const isImage = t.icon_type === 'image' || (img && (img.startsWith('/') || img.startsWith('http')));
+                      if (isImage && img) {
+                        const imgUrl = img.startsWith('http') ? img : `${API_URL}${img.startsWith('/') ? '' : '/'}${img}`;
                         return (
                           <img 
                             src={imgUrl} 
@@ -695,7 +703,7 @@ export default function Tracks() {
                   style={{ cursor: 'pointer', padding: '16px', borderRadius: '12px', transition: 'background 0.2s', border: '1px solid var(--rail-border)' }}
                 >
                   <div className="track-list-band" style={{ background: `${t.color}15`, color: t.color, width: '40px', height: '40px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
-                    <TrackIconRenderer track={t} size={22} />
+                    <TrackIconRenderer track={t} size={22} style={{ width: '100%', height: '100%', borderRadius: 'inherit', objectFit: 'cover' }} />
                   </div>
                   <div className="track-list-info" style={{ marginLeft: '16px', flex: 1 }}>
                     <div className="track-list-name" style={{ font: '800 14px Urbanist', color: 'var(--text)' }}>{t.name}</div>

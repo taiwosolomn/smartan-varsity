@@ -370,7 +370,27 @@ export default function AdminSmartanDetail() {
                     background: t.color || '#666', height: '140px', position: 'relative', overflow: 'hidden',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '14px 14px 0 0'
                   }}>
-                    <span style={{ fontSize: '44px', zIndex: 1 }}>{t.icon}</span>
+                    {(() => {
+                      const img = t.icon_image_url || t.icon_value || t.icon;
+                      const isImage = t.icon_type === 'image' || (img && (img.startsWith('/') || img.startsWith('http')));
+                      if (isImage && img) {
+                        const imgUrl = img.startsWith('http') ? img : `${API_URL}${img.startsWith('/') ? '' : '/'}${img}`;
+                        return (
+                          <img 
+                            src={imgUrl} 
+                            alt={t.name} 
+                            style={{ 
+                              width: '100%', 
+                              height: '100%', 
+                              objectFit: 'cover',
+                              position: 'absolute',
+                              inset: 0
+                            }}
+                          />
+                        );
+                      }
+                      return <TrackIconRenderer track={t} size={44} style={{ zIndex: 1 }} />;
+                    })()}
                     <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 60%, rgba(0,0,0,0.3) 100%)', zIndex: 1 }} />
                   </div>
 
@@ -418,9 +438,10 @@ export default function AdminSmartanDetail() {
                   <div style={{
                     width: '42px', height: '42px', borderRadius: '10px',
                     background: `${t.color || '#666'}22`, color: t.color || '#666',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', flexShrink: 0
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', flexShrink: 0,
+                    overflow: 'hidden'
                   }}>
-                    {t.icon || '📚'}
+                    <TrackIconRenderer track={t} size={22} style={{ width: '100%', height: '100%', borderRadius: 'inherit', objectFit: 'cover' }} />
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ font: '800 14px Urbanist', color: 'var(--text)' }}>{t.name}</div>

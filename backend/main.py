@@ -1038,6 +1038,8 @@ def create_track(track_in: TrackCreate, current_user: User = Depends(get_current
         hslLightness=l,
         icon_type=effective_icon_type,
         icon_value=effective_icon_value,
+        icon_image_url=track_in.icon_image_url,
+        icon_thumb_url=track_in.icon_thumb_url,
     )
     db.add(track)
     db.commit()
@@ -2763,7 +2765,7 @@ def push_schedule_forward(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Shift all future incomplete imported modules for this user forward by N days."""
+    """Shift all incomplete imported modules for this user forward by N days."""
     from sqlalchemy import text as sqltext
     import datetime
 
@@ -2771,8 +2773,7 @@ def push_schedule_forward(
     if days <= 0 or days > 365:
         raise HTTPException(status_code=400, detail="days must be between 1 and 365")
 
-    today_str = datetime.date.today().isoformat()
-
+    # Shift all incomplete imported modules that have a deadline
     db.execute(sqltext("""
         UPDATE modules SET deadline = deadline + :days
         WHERE "courseId" IN (
@@ -2780,12 +2781,12 @@ def push_schedule_forward(
             JOIN tracks t ON c."trackId" = t.id
             WHERE t."userId" = :uid
         )
-        AND deadline >= :today
-        AND "completedAt" IS NULL
+        AND deadline IS NOT NULL
+        AND status != 'done'
         AND source = 'imported'
-    """), {"days": days, "uid": current_user.id, "today": today_str})
+    """), {"days": days, "uid": current_user.id})
     db.commit()
-    return {"message": f"Pushed {days} day(s) forward for all future incomplete imported modules"}
+    return {"message": f"Pushed {days} day(s) forward for all incomplete imported modules"}
 
 
 app.include_router(router_auth)

@@ -347,7 +347,9 @@ export default function TrackView() {
         setLogs(cached.logs);
         setAllTracks(cached.allTracks);
         const collapses = {};
-        cached.track.courses.forEach(c => { collapses[c.id] = false; });
+        if (cached.track.courses) {
+          cached.track.courses.forEach(c => { collapses[c.id] = false; });
+        }
         setCollapsedCourses(collapses);
         setLoading(false);
 
@@ -389,7 +391,9 @@ export default function TrackView() {
         } catch (e) {}
         setTrack(fresh.track);
         const collapses = {};
-        fresh.track.courses.forEach(c => { collapses[c.id] = false; });
+        if (fresh.track.courses) {
+          fresh.track.courses.forEach(c => { collapses[c.id] = false; });
+        }
         setCollapsedCourses(collapses);
         setLogs(fresh.logs);
         setAllTracks(fresh.allTracks);
@@ -404,7 +408,7 @@ export default function TrackView() {
   }, [trackId]);
 
   const calculateTrackProgress = () => {
-    if (!track) return { total: 0, done: 0, pct: 0 };
+    if (!track || !track.courses) return { total: 0, done: 0, pct: 0 };
     let total = 0;
     let done = 0;
     track.courses.forEach(c => {
@@ -485,14 +489,18 @@ export default function TrackView() {
   const navigateToContinue = () => {
     // Find first module in first course that is not done
     let firstIncomplete = null;
-    for (const c of track.courses) {
-      for (const m of c.modules) {
-        if (m.status !== 'done') {
-          firstIncomplete = m;
-          break;
+    if (track && track.courses) {
+      for (const c of track.courses) {
+        if (c.modules) {
+          for (const m of c.modules) {
+            if (m.status !== 'done') {
+              firstIncomplete = m;
+              break;
+            }
+          }
         }
+        if (firstIncomplete) break;
       }
-      if (firstIncomplete) break;
     }
     
     navigate(`/log?trackId=${trackId}&topic=${encodeURIComponent(firstIncomplete ? firstIncomplete.title : '')}`);
@@ -592,7 +600,7 @@ export default function TrackView() {
                 alignItems: 'center',
                 overflow: 'hidden'
               }}>
-                <TrackIconRenderer track={track} size={36} />
+                <TrackIconRenderer track={track} size={36} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
               </div>
 
               
@@ -655,8 +663,9 @@ export default function TrackView() {
       {/* MODULES TAB PANEL */}
       {activeTab === 'overview' && (
         <div>
-          {track?.courses.map(course => {
-            const cp = getCourseProgress(course);
+          {track?.courses && track.courses.length > 0 ? (
+            track.courses.map(course => {
+              const cp = getCourseProgress(course);
             const isCollapsed = collapsedCourses[course.id];
             
             return (
@@ -862,7 +871,12 @@ export default function TrackView() {
                 )}
               </div>
             );
-          })}
+          })
+        ) : (
+          <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '40px 0', font: '600 14px Urbanist' }}>
+            No courses in this track yet. Add a course to get started!
+          </div>
+        )}
           
           <div style={{ display: 'flex', justifyContent: 'center', marginTop: '24px' }}>
             <button className="pillbtn" style={{ background: '#E5A83C', color: '#1C1712' }} onClick={() => setIsCourseModalOpen(true)}>
@@ -929,20 +943,26 @@ export default function TrackView() {
             <div className="card">
               <span className="lbl" style={{ marginBottom: '16px' }}>By course</span>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                {track?.courses.map(c => {
-                  const cp = getCourseProgress(c);
-                  return (
-                    <div key={c.id}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', fontWeight: 700, color: 'var(--text)', marginBottom: '6px' }}>
-                        <span>{c.name}</span>
-                        <span>{cp.pct}%</span>
+                {track?.courses && track.courses.length > 0 ? (
+                  track.courses.map(c => {
+                    const cp = getCourseProgress(c);
+                    return (
+                      <div key={c.id}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', fontWeight: 700, color: 'var(--text)', marginBottom: '6px' }}>
+                          <span>{c.name}</span>
+                          <span>{cp.pct}%</span>
+                        </div>
+                        <div className="phbar">
+                          <div className="progress-fill" style={{ width: `${cp.pct}%`, background: track.color }}></div>
+                        </div>
                       </div>
-                      <div className="phbar">
-                        <div className="progress-fill" style={{ width: `${cp.pct}%`, background: track.color }}></div>
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                ) : (
+                  <div style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: 600 }}>
+                    No courses added yet.
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -961,8 +981,8 @@ export default function TrackView() {
             {logs.length > 0 ? (
               logs.map(l => (
                 <div key={l.id} className="activity-row" style={{ cursor: 'default' }}>
-                  <div className="activity-row-icon" style={{ background: `${track.color}15`, color: track.color }}>
-                    {renderTrackIcon(track.icon, 16)}
+                  <div className="activity-row-icon" style={{ background: `${track.color}15`, color: track.color, overflow: 'hidden' }}>
+                    {renderTrackIcon(track, 16, { width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' })}
                   </div>
                   
                   <div className="activity-row-details">

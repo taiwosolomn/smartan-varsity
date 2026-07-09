@@ -610,8 +610,9 @@ export default function Profile() {
                       width: '44px', height: '44px', borderRadius: '50%',
                       background: `${t.color}18`, color: t.color,
                       display: 'flex', justifyContent: 'center', alignItems: 'center', flexShrink: 0,
+                      overflow: 'hidden'
                     }}>
-                      {renderTrackIcon(t.icon, 22)}
+                      {renderTrackIcon(t, 22, { width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' })}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ font: '800 15px Urbanist', color: 'var(--text)' }}>{t.name}</div>

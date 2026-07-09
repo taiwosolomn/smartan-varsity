@@ -168,7 +168,7 @@ export default function AdminTrackView() {
               alignItems: 'center',
               overflow: 'hidden'
             }}>
-              <TrackIconRenderer track={track} size={36} />
+              <TrackIconRenderer track={track} size={36} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
             </div>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -476,8 +476,8 @@ export default function AdminTrackView() {
             {logs.length > 0 ? (
               logs.map(l => (
                 <div key={l.id} className="activity-row" style={{ cursor: 'default' }}>
-                  <div className="activity-row-icon" style={{ background: `${track.color}15`, color: track.color }}>
-                    {renderTrackIcon(track.icon, 16)}
+                  <div className="activity-row-icon" style={{ background: `${track.color}15`, color: track.color, overflow: 'hidden' }}>
+                    {renderTrackIcon(track, 16, { width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' })}
                   </div>
                   
                   <div className="activity-row-details">

@@ -617,8 +617,8 @@ export default function Dashboard() {
                   onMouseLeave={() => setHoveredTrack(null)}
                 >
                   <div className="track-card-indicator" style={{ background: t.color, width: '4px' }}></div>
-                  <div className="track-card-icon-wrap" style={{ background: `${t.color}18`, color: t.color }}>
-                    {renderTrackIcon(t.icon, 18)}
+                  <div className="track-card-icon-wrap" style={{ background: `${t.color}18`, color: t.color, overflow: 'hidden' }}>
+                    {renderTrackIcon(t, 18, { width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' })}
                   </div>
                   <div className="track-card-name">{t.name}</div>
                   <div className="track-card-bar-wrap">

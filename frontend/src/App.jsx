@@ -457,9 +457,7 @@ function Layout({ children }) {
               )}
             </div>
 
-            <button className="iconbtn" onClick={() => navigate('/calendar')} title="Calendar">
-              <IconCalendar size={19} />
-            </button>
+
             
             <button 
               className="iconbtn" 

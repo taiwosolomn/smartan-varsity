@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import api, { formatDuration } from '../api';
+import api, { formatDuration, renderTrackIcon } from '../api';
 import { 
   IconChevronRight, 
   IconTrendingUp, 
-  IconDownload,
   IconActivity
 } from '@tabler/icons-react';
 
@@ -661,20 +660,11 @@ export default function Analytics() {
           </div>
           {selectedTrackId !== 'all' && bestTrack && (
             <div style={{ font: '700 12.5px Urbanist', color: bestTrack.color || 'var(--text)', marginTop: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span>{bestTrack.icon}</span>
+              {renderTrackIcon(bestTrack, 14, { borderRadius: '50%' })}
               <span>Showing: {bestTrack.name}</span>
             </div>
           )}
         </div>
-
-        <button 
-          className="export-btn btn-sec"
-          onClick={() => window.print()}
-          style={{ display: 'flex', alignItems: 'center', gap: '8px', font: '800 12.5px Urbanist', cursor: 'pointer', padding: '8px 16px', borderRadius: '8px', border: '1px solid var(--rail-border)', background: 'transparent', color: 'var(--text)' }}
-        >
-          <IconDownload size={16} />
-          Export report
-        </button>
       </div>
 
       <div style={{ display: 'flex', marginBottom: '14px', width: '100%', overflowX: 'auto', paddingBottom: '4px' }} className="segmented-control-container">
@@ -727,7 +717,8 @@ export default function Analytics() {
             cursor: 'pointer',
             background: selectedTrackId === 'all' ? 'var(--text)' : 'transparent',
             color: selectedTrackId === 'all' ? 'var(--card-bg)' : 'var(--text)',
-            transition: 'all 0.15s ease'
+            transition: 'all 0.15s ease',
+            flexShrink: 0
           }}
         >
           All
@@ -746,10 +737,14 @@ export default function Analytics() {
                 cursor: 'pointer',
                 background: isActive ? t.color : 'transparent',
                 color: isActive ? 'var(--card-bg)' : 'var(--text)',
-                transition: 'all 0.15s ease'
+                transition: 'all 0.15s ease',
+                flexShrink: 0,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
               }}
             >
-              <span style={{ marginRight: '6px' }}>{t.icon}</span>
+              {renderTrackIcon(t, 14, { borderRadius: '50%' })}
               {t.name}
             </button>
           );

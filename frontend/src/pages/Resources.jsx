@@ -79,6 +79,22 @@ export default function Resources() {
 
   // Optimistic Undo toast states
   const [undoToast, setUndoToast] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const undoToastRef = useRef(null);
+
+  useEffect(() => {
+    undoToastRef.current = undoToast;
+  }, [undoToast]);
+
+  useEffect(() => {
+    return () => {
+      if (undoToastRef.current) {
+        clearTimeout(undoToastRef.current.timerId);
+        api.delete(`/resources/${undoToastRef.current.id}`).catch(err => console.error(err));
+      }
+    };
+  }, []);
 
   const searchRef = useRef(null);
   const cardGridRef = useRef(null);
@@ -222,10 +238,25 @@ export default function Resources() {
     return 'Article';
   };
 
+  const openAddResourceModal = () => {
+    setNewTitle('');
+    setNewType('Article');
+    setNewUrl('');
+    setNewNotes('');
+    setAutoDetectedLabel(false);
+    setSaveError('');
+    if (tracks.length > 0) {
+      setNewTrackId(tracks[0].id);
+    }
+    setIsModalOpen(true);
+  };
+
   const handleCreateResource = async (e) => {
     e.preventDefault();
     if (!newTitle.trim() || !newTrackId) return;
 
+    setSaving(true);
+    setSaveError('');
     try {
       const payload = {
         title: newTitle.trim(),
@@ -239,8 +270,15 @@ export default function Resources() {
 
       const newList = [res.data, ...resources];
       setResources(newList);
-      resourcesCache = newList;
-      cacheTimestamp = Date.now();
+      
+      // Update in-memory and persistent cache
+      const updatedCache = { tracks, resources: newList };
+      resourcesCache = updatedCache;
+      resourcesCacheTimestamp = Date.now();
+      try {
+        localStorage.setItem('sv_resources_cache', JSON.stringify(updatedCache));
+        localStorage.setItem('sv_resources_cache_ts', resourcesCacheTimestamp.toString());
+      } catch (e) {}
 
       window.dispatchEvent(new CustomEvent('show-success', {
         detail: { type: 'resource_added' }
@@ -255,6 +293,10 @@ export default function Resources() {
       setIsModalOpen(false);
     } catch (err) {
       console.error(err);
+      const detail = err?.response?.data?.detail;
+      setSaveError(typeof detail === 'string' ? detail : 'Failed to save resource. Please try again.');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -265,7 +307,13 @@ export default function Resources() {
     // Filter local list optimistically
     const optimisticList = resources.filter(r => r.id !== id);
     setResources(optimisticList);
-    resourcesCache = optimisticList;
+    
+    // Update in-memory and persistent cache immediately
+    const updatedCache = { tracks, resources: optimisticList };
+    resourcesCache = updatedCache;
+    try {
+      localStorage.setItem('sv_resources_cache', JSON.stringify(updatedCache));
+    } catch (e) {}
 
     if (undoToast) {
       clearTimeout(undoToast.timerId);
@@ -296,7 +344,13 @@ export default function Resources() {
 
     const restoredList = [undoToast.resource, ...resources];
     setResources(restoredList);
-    resourcesCache = restoredList;
+    
+    // Restore in-memory and persistent cache
+    const updatedCache = { tracks, resources: restoredList };
+    resourcesCache = updatedCache;
+    try {
+      localStorage.setItem('sv_resources_cache', JSON.stringify(updatedCache));
+    } catch (e) {}
 
     setUndoToast(null);
   };
@@ -661,7 +715,7 @@ export default function Resources() {
               </button>
             )}
           </div>
-          <button className="pillbtn" onClick={() => setIsModalOpen(true)}>
+          <button className="pillbtn" onClick={openAddResourceModal}>
             <IconPlus size={16} />
             <span className="hide-on-mobile">Add resource</span>
           </button>
@@ -1235,7 +1289,7 @@ export default function Resources() {
               {/* ADD A RESOURCE PLACEHOLDER DASHED CARD */}
               <div 
                 className="add-res-dashed-card"
-                onClick={() => setIsModalOpen(true)}
+                onClick={openAddResourceModal}
               >
                 <div className="add-plus-circle">
                   +
@@ -1412,8 +1466,11 @@ export default function Resources() {
                           gap: '6px'
                         }}
                       >
-                        <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: isSelected ? '#fff' : t.color }} />
-                        {t.icon && !t.icon.includes('/') ? t.icon : '🧠'} {t.name}
+                        <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: isSelected ? '#fff' : t.color, flexShrink: 0 }} />
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', overflow: 'hidden' }}>
+                          {renderTrackIcon(t, 12, { borderRadius: '50%', flexShrink: 0 })}
+                          <span>{t.name}</span>
+                        </span>
                       </button>
                     );
                   })}
@@ -1431,12 +1488,33 @@ export default function Resources() {
                 />
               </div>
 
+              {saveError && (
+                <div style={{ color: 'var(--red, #e06c75)', font: '600 13px Urbanist', marginTop: '6px' }}>
+                  {saveError}
+                </div>
+              )}
+
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '10px' }}>
-                <button type="button" className="ghostpill" onClick={() => setIsModalOpen(false)}>
+                <button type="button" className="ghostpill" onClick={() => setIsModalOpen(false)} disabled={saving}>
                   Cancel
                 </button>
-                <button type="submit" className="pillbtn">
-                  Save resource
+                <button type="submit" className="pillbtn" disabled={saving} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {saving ? (
+                    <>
+                      <span style={{
+                        display: 'inline-block',
+                        width: '12px',
+                        height: '12px',
+                        border: '2px solid rgba(255,255,255,0.2)',
+                        borderTop: '2px solid #fff',
+                        borderRadius: '50%',
+                        animation: 'spin 1s linear infinite'
+                      }} />
+                      Saving...
+                    </>
+                  ) : (
+                    'Save resource'
+                  )}
                 </button>
               </div>
             </form>
@@ -1502,8 +1580,11 @@ export default function Resources() {
                           gap: '6px'
                         }}
                       >
-                        <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: isSelected ? '#fff' : t.color }} />
-                        {t.icon && !t.icon.includes('/') ? t.icon : '🧠'} {t.name}
+                        <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: isSelected ? '#fff' : t.color, flexShrink: 0 }} />
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', overflow: 'hidden' }}>
+                          {renderTrackIcon(t, 12, { borderRadius: '50%', flexShrink: 0 })}
+                          <span>{t.name}</span>
+                        </span>
                       </button>
                     );
                   })}
