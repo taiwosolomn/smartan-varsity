@@ -294,12 +294,23 @@ function Layout({ children }) {
         <Link to="/sessions" className={`rico ${activePage === 'sessions' ? 'on' : ''}`}>
           <IconListCheck size={22} />
         </Link>
-        <Link to="/analytics" className={`rico ${activePage === 'analytics' ? 'on' : ''}`}>
-          <IconChartBar size={22} />
-        </Link>
         <Link to="/profile" className={`rico ${activePage === 'profile' ? 'on' : ''}`}>
           <IconUser size={22} />
         </Link>
+        <Link to="/settings" className={`rico ${activePage === 'settings' ? 'on' : ''}`}>
+          <IconSettings size={22} />
+        </Link>
+        <a
+          className="rico"
+          style={{ cursor: 'pointer' }}
+          onClick={async (e) => {
+            e.preventDefault();
+            const confirmLogout = await showConfirm("Log out of Smartan Varsity?", "Log Out");
+            if (confirmLogout) { logout(); }
+          }}
+        >
+          <IconLogout size={22} />
+        </a>
       </nav>
 
       {/* MAIN CONTAINER */}

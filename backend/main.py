@@ -2727,7 +2727,6 @@ app.include_router(router_resources)
 app.include_router(router_analytics)
 app.include_router(router_dashboard)
 app.include_router(router_due)
-app.include_router(router_curriculum)
 
 @app.get("/api/dashboard/summary")
 def get_api_dashboard_summary_fallback(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):

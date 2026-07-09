@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api, { renderTrackIcon } from '../api';
-import { useAuth } from '../App';
-import { IconEdit, IconAlertCircle, IconCheck, IconAward, IconUpload } from '@tabler/icons-react';
+import { useAuth, useCustomDialog } from '../App';
+import { IconEdit, IconAlertCircle, IconCheck, IconAward, IconUpload, IconLogout, IconSettings } from '@tabler/icons-react';
 
 const CIRCLE_SIZE = 280;  // px – crop circle display diameter
 const OUTPUT_SIZE = 400;  // px – canvas export size
@@ -19,7 +19,8 @@ function formatHours(h) {
 }
 
 export default function Profile() {
-  const { fetchUser } = useAuth();
+  const { fetchUser, logout } = useAuth();
+  const { showConfirm } = useCustomDialog();
   const navigate = useNavigate();
 
   // ── Data state ────────────────────────────────────────────────────────────
@@ -407,7 +408,7 @@ export default function Profile() {
           </div>
 
           {/* Action buttons */}
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <div className="profile-action-buttons" style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
             <button
               id="profile-edit-btn"
               onClick={() => setShowEditModal(true)}
@@ -416,6 +417,7 @@ export default function Profile() {
                 padding: '10px 20px', borderRadius: '99px',
                 background: 'var(--text)', color: 'var(--card-bg)',
                 font: '800 13px Urbanist', border: 'none', cursor: 'pointer',
+                minHeight: '40px'
               }}
             >
               <IconEdit size={14} strokeWidth={2.5} />
@@ -425,13 +427,36 @@ export default function Profile() {
               id="profile-settings-btn"
               onClick={() => navigate('/settings')}
               style={{
+                display: 'flex', alignItems: 'center', gap: '7px',
                 padding: '10px 20px', borderRadius: '99px',
                 background: 'transparent', color: 'var(--text)',
                 font: '800 13px Urbanist',
                 border: '1.5px solid var(--input-border)', cursor: 'pointer',
+                minHeight: '40px'
               }}
             >
+              <IconSettings size={14} strokeWidth={2.5} />
               Settings
+            </button>
+            <button
+              id="profile-logout-btn"
+              onClick={async () => {
+                const confirmLogout = await showConfirm("Log out of Smartan Varsity?", "Log Out");
+                if (confirmLogout) {
+                  logout();
+                }
+              }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '7px',
+                padding: '10px 20px', borderRadius: '99px',
+                background: 'transparent', color: '#ef4444',
+                font: '800 13px Urbanist',
+                border: '1.5px solid rgba(239, 68, 68, 0.4)', cursor: 'pointer',
+                minHeight: '40px'
+              }}
+            >
+              <IconLogout size={14} strokeWidth={2.5} />
+              Logout
             </button>
           </div>
         </div>

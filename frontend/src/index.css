@@ -704,12 +704,18 @@ input, textarea, select {
     align-items: center;
     z-index: 100;
     padding-bottom: env(safe-area-inset-bottom);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    gap: 2px;
+    padding-left: 4px;
+    padding-right: 4px;
   }
   
   .mobile-nav .rico {
-    width: 44px;
-    height: 44px;
-    border-radius: 12px;
+    width: 40px;
+    height: 40px;
+    border-radius: 11px;
+    flex-shrink: 0;
   }
   
   .topbar {
@@ -1837,6 +1843,17 @@ input:checked + .toggle-slider:before {
   .topbar-brand { font-size: 15px; }
   .topbar-page-title { display: none; }
   .topbar-right { gap: 8px; }
+
+  /* ── Profile Page ─────────────────────────────────────── */
+  .profile-card-header {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 20px !important;
+  }
+  .profile-action-buttons {
+    width: 100% !important;
+    justify-content: flex-start !important;
+  }
 
   /* ── Dashboard ────────────────────────────────────────── */
   .dashboard-title { font-size: 26px; letter-spacing: -0.5px; }
