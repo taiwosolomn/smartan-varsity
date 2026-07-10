@@ -112,7 +112,7 @@ export default function AdminTrackView() {
   
   if (logs.length > 1) {
     // Sort logs chronologically for chart plotting
-    const sortedLogs = [...logs].sort((a, b) => a.date.localeCompare(b.date));
+    const sortedLogs = [...logs].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
     const maxLogs = sortedLogs.slice(-10); // plot last 10 logs
     const xStep = chartWidth / (maxLogs.length - 1);
     

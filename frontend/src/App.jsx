@@ -480,7 +480,7 @@ function Layout({ children }) {
               >
                 {user?.avatarUrl ? (
                   <img 
-                    src={`${api.defaults.baseURL || ''}${user.avatarUrl}`} 
+                    src={user.avatarUrl.startsWith('http') ? user.avatarUrl : `${api.defaults.baseURL || ''}${user.avatarUrl.startsWith('/') ? '' : '/'}${user.avatarUrl}`} 
                     alt="Avatar" 
                     style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
                   />

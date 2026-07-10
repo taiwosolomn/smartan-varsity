@@ -1,7 +1,20 @@
 import React, { useState } from 'react';
 import { getLibraryIcon } from './TrackIconLibrary.jsx';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const RAILWAY_URL = 'https://smartan-varsity-production.up.railway.app';
+const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
+let resolvedApiUrl = import.meta.env.VITE_API_URL || '';
+
+if (typeof window !== 'undefined' && !isLocalhost) {
+  if (!resolvedApiUrl || resolvedApiUrl.includes('localhost') || resolvedApiUrl.includes('127.0.0.1')) {
+    resolvedApiUrl = RAILWAY_URL;
+  }
+} else if (isLocalhost && !resolvedApiUrl) {
+  resolvedApiUrl = 'http://localhost:8000';
+}
+
+const API_URL = resolvedApiUrl;
 
 /**
  * TrackIconRenderer — Renders a track icon for any of the 3 icon types.

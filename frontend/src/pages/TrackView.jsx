@@ -222,7 +222,7 @@ export default function TrackView() {
         } catch (e) {}
       }
       const collapses = {};
-      res.data.courses.forEach(c => {
+      (res.data?.courses || []).forEach(c => {
         collapses[c.id] = false; // default open
       });
       setCollapsedCourses(collapses);
@@ -507,8 +507,9 @@ export default function TrackView() {
   };
 
   const getCourseProgress = (course) => {
-    const total = course.modules.length;
-    const done = course.modules.filter(m => m.status === 'done').length;
+    const modules = course?.modules || [];
+    const total = modules.length;
+    const done = modules.filter(m => m.status === 'done').length;
     return {
       total,
       done,
@@ -559,7 +560,7 @@ export default function TrackView() {
   
   if (logs.length > 1) {
     // Sort logs chronologically for chart plotting
-    const sortedLogs = [...logs].sort((a, b) => a.date.localeCompare(b.date));
+    const sortedLogs = [...logs].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
     const maxLogs = sortedLogs.slice(-10); // plot last 10 logs
     const xStep = chartWidth / (maxLogs.length - 1);
     

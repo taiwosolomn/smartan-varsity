@@ -496,9 +496,9 @@ export default function Resources() {
     .sort((a, b) => {
       if (sortBy === 'newest') return new Date(b.addedAt) - new Date(a.addedAt);
       if (sortBy === 'oldest') return new Date(a.addedAt) - new Date(b.addedAt);
-      if (sortBy === 'az') return a.title.localeCompare(b.title);
-      if (sortBy === 'za') return b.title.localeCompare(a.title);
-      if (sortBy === 'type') return a.type.localeCompare(b.type);
+      if (sortBy === 'az') return (a.title || '').localeCompare(b.title || '');
+      if (sortBy === 'za') return (b.title || '').localeCompare(a.title || '');
+      if (sortBy === 'type') return (a.type || '').localeCompare(b.type || '');
       return 0;
     });
 

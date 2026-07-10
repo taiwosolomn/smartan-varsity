@@ -2658,18 +2658,29 @@ def confirm_curriculum_import(
                 h, s, l = hex_to_hsl(color)
 
                 deadline_val = t_data.get("deadline")
+                if not deadline_val or str(deadline_val).strip() == "":
+                    deadline_val = None
+
+                icon_val = t_data.get("icon") or "📚"
+                is_img = icon_val.startswith("http") or icon_val.startswith("/") or "static" in icon_val
+                icon_type = "image" if is_img else "emoji"
+                icon_image_url = icon_val if is_img else None
+                icon_thumb_url = icon_val if is_img else None
+
                 db.execute(sqltext("""
                     INSERT INTO tracks (id, "userId", name, icon, color, phase, "order", "createdAt",
                                         "hslHue", "hslSaturation", "hslLightness",
                                         deadline, code, weekly_hours, total_hours,
-                                        track_resources, smartan_builder_alignment, live_industry_experiences)
+                                        track_resources, smartan_builder_alignment, live_industry_experiences,
+                                        icon_type, icon_value, icon_image_url, icon_thumb_url)
                     VALUES (:id, :uid, :name, :icon, :color, :phase, :order, now(),
                             :hue, :sat, :lig,
-                            :deadline, :code, :wh, :th, CAST(:res AS jsonb), CAST(:sba AS jsonb), CAST(:lie AS jsonb))
+                            :deadline, :code, :wh, :th, CAST(:res AS jsonb), CAST(:sba AS jsonb), CAST(:lie AS jsonb),
+                            :icon_type, :icon_value, :icon_image_url, :icon_thumb_url)
                 """), {
                     "id": track_id, "uid": current_user.id,
                     "name": t_data.get("name", "Untitled Track"),
-                    "icon": "📚", "color": color, "phase": "Semester 1",
+                    "icon": icon_val, "color": color, "phase": "Semester 1",
                     "order": max_order + 1 + ti,
                     "hue": h, "sat": s, "lig": l,
                     "deadline": deadline_val,
@@ -2678,11 +2689,19 @@ def confirm_curriculum_import(
                     "th": t_data.get("total_hours"),
                     "res": json.dumps(t_data.get("resources", {})),
                     "sba": json.dumps(t_data.get("smartan_builder_alignment", [])),
-                    "lie": json.dumps(t_data.get("live_industry_experiences", []))
+                    "lie": json.dumps(t_data.get("live_industry_experiences", [])),
+                    "icon_type": icon_type,
+                    "icon_value": icon_val,
+                    "icon_image_url": icon_image_url,
+                    "icon_thumb_url": icon_thumb_url
                 })
 
                 for ci, c_data in enumerate(t_data.get("courses", [])):
                     course_id = generate_id("c")
+                    c_deadline = c_data.get("deadline")
+                    if not c_deadline or str(c_deadline).strip() == "":
+                        c_deadline = None
+
                     db.execute(sqltext("""
                         INSERT INTO courses (id, "trackId", name, "order", "createdAt", deadline, deliverable, spans_weeks, reference)
                         VALUES (:id, :tid, :name, :order, now(), :deadline, :deliv, :spans, :ref)
@@ -2690,7 +2709,7 @@ def confirm_curriculum_import(
                         "id": course_id, "tid": track_id,
                         "name": c_data.get("name", "Untitled Course"),
                         "order": ci,
-                        "deadline": c_data.get("deadline"),
+                        "deadline": c_deadline,
                         "deliv": c_data.get("deliverable"),
                         "spans": c_data.get("spans_weeks"),
                         "ref": c_data.get("reference")
@@ -2698,6 +2717,10 @@ def confirm_curriculum_import(
 
                     for mi, m_data in enumerate(c_data.get("modules", [])):
                         module_id = generate_id("m")
+                        m_deadline = m_data.get("deadline")
+                        if not m_deadline or str(m_deadline).strip() == "":
+                            m_deadline = None
+
                         db.execute(sqltext("""
                             INSERT INTO modules (id, "courseId", title, type, status, "order", "createdAt",
                                                 deadline, source, day, task, description, due_by_week)
@@ -2707,7 +2730,7 @@ def confirm_curriculum_import(
                             "id": module_id, "cid": course_id,
                             "title": m_data.get("name") or m_data.get("title", "Untitled Module"),
                             "order": mi,
-                            "deadline": m_data.get("deadline"),
+                            "deadline": m_deadline,
                             "day": m_data.get("day"),
                             "task": m_data.get("task"),
                             "desc": m_data.get("description"),

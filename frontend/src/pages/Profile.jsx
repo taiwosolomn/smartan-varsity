@@ -323,7 +323,7 @@ export default function Profile() {
   );
 
   const avatarSrc = user.avatarUrl
-    ? (user.avatarUrl.startsWith('http') ? user.avatarUrl : `${api.defaults.baseURL}${user.avatarUrl}`)
+    ? (user.avatarUrl.startsWith('http') ? user.avatarUrl : `${api.defaults.baseURL || ''}${user.avatarUrl.startsWith('/') ? '' : '/'}${user.avatarUrl}`)
     : null;
 
   // First two chars of name as initials fallback
@@ -596,7 +596,7 @@ export default function Profile() {
         {activeTab === 'tracks' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {tracks.length > 0 ? (
-              [...tracks].sort((a, b) => a.name.localeCompare(b.name)).map(t => {
+              [...tracks].sort((a, b) => (a.name || '').localeCompare(b.name || '')).map(t => {
                 const p = calculateTrackProgress(t);
                 return (
                   <div key={t.id} onClick={() => navigate(`/tracks/${t.id}`)} style={{
