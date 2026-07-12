@@ -3499,6 +3499,48 @@ def get_admin_analytics(
     monday = today - datetime.timedelta(days=today.weekday())
     week_sessions = sum(1 for l in logs if l.date >= monday.isoformat())
 
+    # Cohort-wide streak: apply the same per-user current/best streak algorithm used by
+    # /analytics/streak to every smartan in scope, then take the best current streak and
+    # the best-ever streak across the cohort (instead of hardcoded placeholder values).
+    user_dates_map = {}
+    for l in logs:
+        user_dates_map.setdefault(l.userId, set()).add(l.date)
+
+    yesterday = today - datetime.timedelta(days=1)
+    cohort_current_streak = 0
+    cohort_best_streak = 0
+    for uid, date_set in user_dates_map.items():
+        unique_dates = sorted(date_set)
+        user_current = 0
+        user_best = 0
+        temp_streak = 0
+        prev_date = None
+        for d_str in unique_dates:
+            d = datetime.date.fromisoformat(d_str)
+            if prev_date is None:
+                temp_streak = 1
+            else:
+                delta = (d - prev_date).days
+                if delta == 1:
+                    temp_streak += 1
+                elif delta > 1:
+                    if temp_streak > user_best:
+                        user_best = temp_streak
+                    temp_streak = 1
+            prev_date = d
+        if temp_streak > user_best:
+            user_best = temp_streak
+
+        if today.isoformat() in date_set or yesterday.isoformat() in date_set:
+            start_date = today if today.isoformat() in date_set else yesterday
+            while start_date.isoformat() in date_set:
+                user_current += 1
+                start_date -= datetime.timedelta(days=1)
+
+        user_best = max(user_best, user_current)
+        cohort_current_streak = max(cohort_current_streak, user_current)
+        cohort_best_streak = max(cohort_best_streak, user_best)
+
     total_smartans = db.query(User).filter(User.role == "smartan").count()
 
     track_durations = {}
@@ -3567,7 +3609,7 @@ def get_admin_analytics(
             "totalHours": total_hours,
             "avgSession": avg_session,
             "avgMastery": avg_mastery,
-            "streak": 6,
+            "streak": cohort_current_streak,
             "hoursThisMonth": month_hours,
             "sessionsThisWeek": week_sessions,
             "activeTracks": len(filtered_tracks)
@@ -3576,8 +3618,8 @@ def get_admin_analytics(
         "heatmap": heatmap,
         "masteryData": dist,
         "streakData": {
-            "currentStreak": 6,
-            "bestStreak": 11,
+            "currentStreak": cohort_current_streak,
+            "bestStreak": cohort_best_streak,
             "sessionsCount": len(logs),
             "avgMastery": avg_mastery,
             "totalHours": total_hours
