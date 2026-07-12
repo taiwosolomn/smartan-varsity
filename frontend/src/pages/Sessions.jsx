@@ -117,6 +117,7 @@ export default function Sessions() {
   // Modal detail state
   const [selectedLog, setSelectedLog] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDeletingLog, setIsDeletingLog] = useState(false);
 
   // Search input expandable state (mobile)
   const [searchExpanded, setSearchExpanded] = useState(false);
@@ -288,7 +289,8 @@ export default function Sessions() {
 
   const handleDeleteLog = async (logId) => {
     const isConfirmed = await showConfirm("Are you sure you want to delete this session log?", "Delete Session Log");
-    if (!isConfirmed) return;
+    if (!isConfirmed || isDeletingLog) return;
+    setIsDeletingLog(true);
     try {
       await api.delete(`/logs/${logId}`);
       setIsModalOpen(false);
@@ -299,6 +301,8 @@ export default function Sessions() {
     } catch (err) {
       console.error(err);
       showAlert("Failed to delete session log.", "Error");
+    } finally {
+      setIsDeletingLog(false);
     }
   };
 
@@ -849,12 +853,13 @@ export default function Sessions() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px', borderTop: '1px solid var(--rail-border)', paddingTop: '20px' }}>
                   
                   {/* Delete button */}
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={() => handleDeleteLog(selectedLog.id)}
-                    style={{ background: 'none', border: 'none', color: '#EF4444', font: '800 13px Urbanist', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
+                    disabled={isDeletingLog}
+                    style={{ background: 'none', border: 'none', color: '#EF4444', font: '800 13px Urbanist', display: 'flex', alignItems: 'center', gap: '6px', cursor: isDeletingLog ? 'not-allowed' : 'pointer', opacity: isDeletingLog ? 0.6 : 1 }}
                   >
-                    <IconTrash size={14} /> Delete
+                    <IconTrash size={14} /> {isDeletingLog ? 'Deleting…' : 'Delete'}
                   </button>
 
                   <div style={{ display: 'flex', gap: '10px' }}>
