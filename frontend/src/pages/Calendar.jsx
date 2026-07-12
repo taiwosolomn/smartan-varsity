@@ -45,6 +45,7 @@ export default function Calendar() {
 
   // Unified Plan/Edit Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSavingPlan, setIsSavingPlan] = useState(false);
   const [editingEventId, setEditingEventId] = useState(null);
   const [selectedTrackId, setSelectedTrackId] = useState('');
   const [topic, setTopic] = useState('');
@@ -55,6 +56,7 @@ export default function Calendar() {
 
   // Recurrence confirmation popup
   const [recurrenceAction, setRecurrenceAction] = useState(null); // { type: 'edit'|'delete', event: ... }
+  const [isApplyingRecurrenceAction, setIsApplyingRecurrenceAction] = useState(false);
 
   // Slide-in toast notification state
   const [toast, setToast] = useState(null); // { message: '', visible: false }
@@ -73,6 +75,7 @@ export default function Calendar() {
   // Log details modal state
   const [selectedLog, setSelectedLog] = useState(null);
   const [isLogEditing, setIsLogEditing] = useState(false);
+  const [isSavingLogEdit, setIsSavingLogEdit] = useState(false);
   const [logEditTrackId, setLogEditTrackId] = useState('');
   const [logEditTopic, setLogEditTopic] = useState('');
   const [logEditDate, setLogEditDate] = useState('');
@@ -303,8 +306,9 @@ export default function Calendar() {
 
   const handleSavePlan = async (e) => {
     e.preventDefault();
-    if (!topic.trim() || !planDate || !selectedTrackId) return;
+    if (!topic.trim() || !planDate || !selectedTrackId || isSavingPlan) return;
 
+    setIsSavingPlan(true);
     try {
       if (editingEventId) {
         // Checking if it's recurring
@@ -377,6 +381,8 @@ export default function Calendar() {
       setCachedMonths(prev => ({ ...prev, [currentMonthKey]: refreshed }));
     } catch (err) {
       console.error(err);
+    } finally {
+      setIsSavingPlan(false);
     }
   };
 
@@ -416,9 +422,10 @@ export default function Calendar() {
 
   // Recurrence modifications batch runners
   const executeRecurrenceAction = async (applyToAll) => {
-    if (!recurrenceAction) return;
+    if (!recurrenceAction || isApplyingRecurrenceAction) return;
     const { type, event } = recurrenceAction;
     setRecurrenceAction(null);
+    setIsApplyingRecurrenceAction(true);
 
     try {
       if (type === 'delete') {
@@ -470,6 +477,8 @@ export default function Calendar() {
       setCachedMonths(prev => ({ ...prev, [currentMonthKey]: refreshed }));
     } catch (err) {
       console.error(err);
+    } finally {
+      setIsApplyingRecurrenceAction(false);
     }
   };
 
@@ -489,8 +498,9 @@ export default function Calendar() {
 
   const handleSaveLogEdit = async (e) => {
     e.preventDefault();
-    if (!selectedLog) return;
+    if (!selectedLog || isSavingLogEdit) return;
 
+    setIsSavingLogEdit(true);
     try {
       await api.put(`/logs/${selectedLog.id}`, {
         trackId: logEditTrackId,
@@ -508,6 +518,8 @@ export default function Calendar() {
       setCachedMonths(prev => ({ ...prev, [currentMonthKey]: refreshed }));
     } catch (err) {
       console.error(err);
+    } finally {
+      setIsSavingLogEdit(false);
     }
   };
 
@@ -1345,11 +1357,11 @@ export default function Calendar() {
                 ) : <div />}
 
                 <div style={{ display: 'flex', gap: '12px' }}>
-                  <button type="button" className="ghostpill" onClick={() => setIsModalOpen(false)}>
+                  <button type="button" className="ghostpill" onClick={() => setIsModalOpen(false)} disabled={isSavingPlan}>
                     Cancel
                   </button>
-                  <button type="submit" className="pillbtn">
-                    {editingEventId ? 'Save changes' : 'Plan session'}
+                  <button type="submit" className="pillbtn" disabled={isSavingPlan} style={{ opacity: isSavingPlan ? 0.6 : 1, cursor: isSavingPlan ? 'not-allowed' : 'pointer' }}>
+                    {isSavingPlan ? 'Saving…' : (editingEventId ? 'Save changes' : 'Plan session')}
                   </button>
                 </div>
               </div>
@@ -1372,10 +1384,10 @@ export default function Calendar() {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '16px' }}>
-              <button className="pillbtn" style={{ background: 'var(--accent, #E5A83C)' }} onClick={() => executeRecurrenceAction(false)}>
+              <button className="pillbtn" style={{ background: 'var(--accent, #E5A83C)' }} disabled={isApplyingRecurrenceAction} onClick={() => executeRecurrenceAction(false)}>
                 {recurrenceAction.type === 'delete' ? 'Delete this session only' : 'Edit this session only'}
               </button>
-              <button className="pillbtn" onClick={() => executeRecurrenceAction(true)}>
+              <button className="pillbtn" disabled={isApplyingRecurrenceAction} onClick={() => executeRecurrenceAction(true)}>
                 {recurrenceAction.type === 'delete' ? 'Delete all future sessions' : 'Edit all future sessions'}
               </button>
               <button className="ghostpill" onClick={() => setRecurrenceAction(null)}>Cancel</button>
@@ -1494,8 +1506,10 @@ export default function Calendar() {
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
-                  <button type="button" className="ghostpill" onClick={() => setIsLogEditing(false)}>Cancel</button>
-                  <button type="submit" className="pillbtn">Save edits</button>
+                  <button type="button" className="ghostpill" disabled={isSavingLogEdit} onClick={() => setIsLogEditing(false)}>Cancel</button>
+                  <button type="submit" className="pillbtn" disabled={isSavingLogEdit} style={{ opacity: isSavingLogEdit ? 0.6 : 1, cursor: isSavingLogEdit ? 'not-allowed' : 'pointer' }}>
+                    {isSavingLogEdit ? 'Saving…' : 'Save edits'}
+                  </button>
                 </div>
               </form>
             ) : (
