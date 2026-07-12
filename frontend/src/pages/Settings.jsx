@@ -46,6 +46,7 @@ export default function Settings() {
   // Real-time username validation
   const [usernameAvailability, setUsernameAvailability] = useState({ checked: false, available: false, message: '' });
   const [checkingUsername, setCheckingUsername] = useState(false);
+  const [lastSignInAt, setLastSignInAt] = useState(null);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -54,6 +55,14 @@ export default function Settings() {
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Real last-login timestamp from Supabase Auth (no location data exists anywhere
+  // in the system, so we only ever show the date/time, never a fabricated location).
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setLastSignInAt(data?.session?.user?.last_sign_in_at || null);
+    });
   }, []);
 
   useEffect(() => {
@@ -352,10 +361,12 @@ export default function Settings() {
         </div>
       </div>
 
-      {/* Last Login Info Security Text */}
-      <div style={{ marginTop: '10px', font: '600 12px Urbanist', color: 'var(--text-muted)' }}>
-        Last login: {new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })} from London, UK
-      </div>
+      {/* Last Login Info — real timestamp from Supabase Auth, no fabricated location */}
+      {lastSignInAt && (
+        <div style={{ marginTop: '10px', font: '600 12px Urbanist', color: 'var(--text-muted)' }}>
+          Last login: {new Date(lastSignInAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })} at {new Date(lastSignInAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </div>
+      )}
     </div>
   );
 
