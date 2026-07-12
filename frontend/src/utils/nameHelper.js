@@ -1,39 +1,24 @@
-export function getFirstName(fullName, email) {
-  const isEmail = (val) => val && typeof val === 'string' && val.includes('@');
+// Single source of truth for deriving a user's first name for display (greetings, etc).
+// fullName itself is always stored and displayed verbatim elsewhere — this helper only
+// ever extracts a first name for contexts like "Howdy, {firstName}".
+export function getFirstName(fullName, email, fallback = 'Smartan') {
+  // A backend fallback (Postgres trigger) stores the raw email as fullName when no name
+  // was supplied at signup. Treat that case as "no fullName" rather than splitting an
+  // email string on whitespace (which would return the whole email untouched).
+  const looksLikeEmail = (val) => typeof val === 'string' && val.includes('@');
 
-  const cleanAndExtract = (word) => {
-    if (!word) return 'Smartan';
-    const commonPrefixes = ['solomon', 'jane', 'john', 'david', 'sarah', 'daniel', 'mary', 'james', 'robert', 'michael', 'william', 'joseph', 'charles'];
-    const lowerWord = word.toLowerCase();
-    for (const prefix of commonPrefixes) {
-      if (lowerWord.startsWith(prefix)) {
-        return prefix.charAt(0).toUpperCase() + prefix.slice(1);
-      }
-    }
-    return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
-  };
-
-  // Check fullName first
-  if (fullName && typeof fullName === 'string' && fullName.trim().length > 0 && !isEmail(fullName)) {
-    const cleanName = fullName.trim();
-    // Split by any common separator: spaces, dots, dashes, underscores
-    const parts = cleanName.split(/[\s\._-]/).filter(Boolean);
-    if (parts.length > 0) {
-      return cleanAndExtract(parts[0]);
-    }
+  if (fullName && typeof fullName === 'string' && fullName.trim() && !looksLikeEmail(fullName)) {
+    return fullName.trim().split(/\s+/)[0];
   }
 
-  // Fallback to email
-  const emailToUse = isEmail(fullName) ? fullName : email;
-  if (emailToUse && typeof emailToUse === 'string' && emailToUse.trim().length > 0) {
+  const emailToUse = looksLikeEmail(fullName) ? fullName : email;
+  if (emailToUse && typeof emailToUse === 'string') {
     const atIdx = emailToUse.indexOf('@');
     const prefix = atIdx > 0 ? emailToUse.slice(0, atIdx) : emailToUse;
-    // Split prefix by dots, dashes, underscores, spaces
-    const parts = prefix.split(/[\s\._-]/).filter(Boolean);
-    if (parts.length > 0) {
-      return cleanAndExtract(parts[0]);
+    if (prefix) {
+      return prefix.charAt(0).toUpperCase() + prefix.slice(1);
     }
   }
 
-  return 'Smartan';
+  return fallback;
 }

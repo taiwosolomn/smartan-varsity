@@ -251,9 +251,14 @@ def startup_event():
       ELSE
         SELECT role, id INTO v_old_role, v_user_id FROM public.users WHERE auth_id = new.id;
 
+        -- Intentionally NOT touching "fullName" here. This branch re-runs on every
+        -- auth.users UPDATE (login, session refresh, etc.), not just signup, and
+        -- fullName is owned by the app (set once via /auth/create-profile right
+        -- after signup, edited via PUT /auth/profile) — re-deriving it from
+        -- raw_user_meta_data on every login would silently clobber a real name
+        -- back to the email-fallback or stale signup-time metadata.
         UPDATE public.users
         SET email = new.email,
-            "fullName" = v_full_name,
             role = v_role
         WHERE auth_id = new.id;
 
@@ -418,9 +423,18 @@ def create_profile(
     if not auth_id or not email:
         raise HTTPException(status_code=400, detail="Invalid token payload")
 
-    # Idempotent — already has a profile
+    # Idempotent — already has a profile. Note: a DB-level trigger
+    # (handle_auth_user_change) also creates this row synchronously during
+    # supabase.auth.signUp(), before this endpoint ever runs, falling back to
+    # the raw email as fullName since signUp() doesn't pass user metadata.
+    # If the caller supplied a real fullName here, let it win over that
+    # trigger-created fallback rather than silently discarding it.
     existing = db.query(User).filter(User.auth_id == auth_id).first()
     if existing:
+        if profile_in.fullName and profile_in.fullName.strip() and existing.fullName != profile_in.fullName:
+            existing.fullName = profile_in.fullName
+            db.commit()
+            db.refresh(existing)
         return existing
 
     # Link seeded / existing user with same email

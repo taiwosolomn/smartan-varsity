@@ -155,11 +155,16 @@ export default function Login() {
     setLoading(true);
     try {
       // 1 — Create Supabase Auth user
+      // Pass fullName as user metadata so the DB-level auth trigger (which creates the
+      // public.users row and reads raw_user_meta_data->>'fullName') gets the real name
+      // on the very first INSERT — the follow-up /auth/create-profile call below only
+      // fires when a session comes back synchronously, which isn't guaranteed.
       const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {
           emailRedirectTo: `${window.location.origin}/dashboard`,
+          data: { fullName: fullName.trim() },
         },
       });
 

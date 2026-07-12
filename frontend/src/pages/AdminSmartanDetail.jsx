@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api, { renderTrackIcon, API_URL } from '../api';
 import { useCustomDialog } from '../App';
 import TrackIconRenderer from '../components/TrackIconRenderer.jsx';
+import { getFirstName } from '../utils/nameHelper';
 import {
   IconChevronLeft, IconChevronRight, IconAlertCircle,
   IconLayoutGrid, IconList, IconEye
@@ -19,6 +20,7 @@ export default function AdminSmartanDetail() {
 
   // States
   const [profile, setProfile] = useState(null);
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
   const [dashboard, setDashboard] = useState(null);
   const [activityLog, setActivityLog] = useState([]);
   const [totalLogs, setTotalLogs] = useState(0);
@@ -122,18 +124,21 @@ export default function AdminSmartanDetail() {
   };
 
   const handlePasswordReset = async () => {
-    if (!profile) return;
+    if (!profile || isResettingPassword) return;
     const confirmed = await showConfirm(
       `Send a password recovery link to ${profile.email}?`,
       'Trigger Password Reset'
     );
-    if (!confirmed) return;
+    if (!confirmed || isResettingPassword) return;
+    setIsResettingPassword(true);
     try {
       await api.post(`/admin/smartans/${id}/reset-password`);
       await showAlert(`Password recovery email sent to ${profile.email}.`, 'Email Sent');
     } catch (e) {
       console.error(e);
       await showAlert('Failed to trigger password reset. Please try again.', 'Error');
+    } finally {
+      setIsResettingPassword(false);
     }
   };
 
@@ -247,9 +252,10 @@ export default function AdminSmartanDetail() {
           <button
             className="ghostpill"
             onClick={handlePasswordReset}
-            style={{ padding: '8px 16px', fontSize: '13px', border: '1px solid var(--input-border)', cursor: 'pointer' }}
+            disabled={isResettingPassword}
+            style={{ padding: '8px 16px', fontSize: '13px', border: '1px solid var(--input-border)', cursor: isResettingPassword ? 'not-allowed' : 'pointer', opacity: isResettingPassword ? 0.6 : 1 }}
           >
-            Trigger password reset
+            {isResettingPassword ? 'Sending…' : 'Trigger password reset'}
           </button>
           <button
             className="pillbtn"
@@ -273,7 +279,7 @@ export default function AdminSmartanDetail() {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span style={{ fontSize: '16px' }}>👁️</span>
-          <span>You're viewing {profile.fullName.split(' ')[0]}'s world — a mirror of their Dashboard & Analytics, from the outside.</span>
+          <span>You're viewing {getFirstName(profile.fullName, profile.email)}'s world — a mirror of their Dashboard & Analytics, from the outside.</span>
         </div>
         <span style={{ opacity: 0.5, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px' }}>Read-only observation</span>
       </div>

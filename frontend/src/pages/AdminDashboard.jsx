@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api, { renderActivityIcon, renderActivityText } from '../api';
 import { IconUser, IconChevronRight, IconLoader, IconAlertCircle } from '@tabler/icons-react';
 import { useAuth } from '../App';
+import { getFirstName } from '../utils/nameHelper';
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -234,7 +235,7 @@ export default function AdminDashboard() {
       <div style={{ marginBottom: '4px' }}>
         <div className="kthin" style={{ width: '40px', borderRadius: '99px', marginBottom: '16px' }} />
         <h1 className="dashboard-title">
-          Howdy, {user?.fullName ? user.fullName.split(' ')[0] : 'Admin'}
+          Howdy, {getFirstName(user?.fullName, user?.email, 'Admin')}
         </h1>
         <div style={{ font: '600 13.5px Urbanist', color: 'var(--text-muted)', marginTop: '4px' }}>
           {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} · <span style={{ color: 'var(--accent, #C25A3A)', fontWeight: 700 }}>University for Smartans</span>
