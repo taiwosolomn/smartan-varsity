@@ -51,11 +51,13 @@ export default function TrackView() {
   // Modals state
   const [isCourseModalOpen, setIsCourseModalOpen] = useState(false);
   const [newCourseName, setNewCourseName] = useState('');
-  
+  const [isSavingCourse, setIsSavingCourse] = useState(false);
+
   const [isModuleModalOpen, setIsModuleModalOpen] = useState(false);
   const [selectedCourseId, setSelectedCourseId] = useState('');
   const [newModuleTitle, setNewModuleTitle] = useState('');
   const [newModuleType, setNewModuleType] = useState('reading');
+  const [isSavingModule, setIsSavingModule] = useState(false);
 
   // Edit Track State
   const [isEditTrackOpen, setIsEditTrackOpen] = useState(false);
@@ -64,6 +66,7 @@ export default function TrackView() {
   const [editIconState, setEditIconState] = useState({ type: 'emoji', value: '🧠', imageUrl: null, thumbUrl: null });
   const [editTrackColor, setEditTrackColor] = useState('');
   const [editTrackSemester, setEditTrackSemester] = useState('');
+  const [isSavingTrack, setIsSavingTrack] = useState(false);
 
   // Validation & shake animations
   const [allTracks, setAllTracks] = useState([]);
@@ -76,16 +79,22 @@ export default function TrackView() {
   const [isRenameCourseOpen, setIsRenameCourseOpen] = useState(false);
   const [renameCourseId, setRenameCourseId] = useState('');
   const [renameCourseName, setRenameCourseName] = useState('');
+  const [isRenamingCourse, setIsRenamingCourse] = useState(false);
+
+  // Module status-cycle pending state (tracks which module IDs have an in-flight request)
+  const [cyclingModuleIds, setCyclingModuleIds] = useState(() => new Set());
 
   // Course Delete State
   const [isDeleteCourseOpen, setIsDeleteCourseOpen] = useState(false);
   const [deleteCourseId, setDeleteCourseId] = useState('');
   const [deleteCourseName, setDeleteCourseName] = useState('');
+  const [isDeletingCourse, setIsDeletingCourse] = useState(false);
 
   // Module Delete State
   const [isDeleteModuleOpen, setIsDeleteModuleOpen] = useState(false);
   const [deleteModuleId, setDeleteModuleId] = useState('');
   const [deleteModuleTitle, setDeleteModuleTitle] = useState('');
+  const [isDeletingModule, setIsDeletingModule] = useState(false);
   const [expandedModules, setExpandedModules] = useState({});
 
   const openEditTrack = () => {
@@ -107,6 +116,7 @@ export default function TrackView() {
 
   const handleEditTrack = async (e) => {
     e.preventDefault();
+    if (isSavingTrack) return;
     const iconDisplayVal = editIconState.value || '🧠';
     const err = validateFields(editTrackName, editTrackColor, iconDisplayVal, trackId);
     setValErrors(err);
@@ -117,6 +127,7 @@ export default function TrackView() {
       return;
     }
 
+    setIsSavingTrack(true);
     try {
       await api.put(`/tracks/${trackId}`, {
         name:           editTrackName.trim(),
@@ -155,6 +166,8 @@ export default function TrackView() {
       } else {
         console.error(err);
       }
+    } finally {
+      setIsSavingTrack(false);
     }
   };
 
@@ -166,13 +179,16 @@ export default function TrackView() {
 
   const handleRenameCourse = async (e) => {
     e.preventDefault();
-    if (!renameCourseName.trim()) return;
+    if (!renameCourseName.trim() || isRenamingCourse) return;
+    setIsRenamingCourse(true);
     try {
       await api.put(`/courses/${renameCourseId}`, { name: renameCourseName.trim() });
       setIsRenameCourseOpen(false);
       await fetchTrackDetails();
     } catch (err) {
       console.error(err);
+    } finally {
+      setIsRenamingCourse(false);
     }
   };
 
@@ -183,12 +199,16 @@ export default function TrackView() {
   };
 
   const executeDeleteCourse = async () => {
+    if (isDeletingCourse) return;
+    setIsDeletingCourse(true);
     try {
       await api.delete(`/courses/${deleteCourseId}`);
       setIsDeleteCourseOpen(false);
       await fetchTrackDetails();
     } catch (err) {
       console.error(err);
+    } finally {
+      setIsDeletingCourse(false);
     }
   };
 
@@ -199,12 +219,16 @@ export default function TrackView() {
   };
 
   const executeDeleteModule = async () => {
+    if (isDeletingModule) return;
+    setIsDeletingModule(true);
     try {
       await api.delete(`/modules/${deleteModuleId}`);
       setIsDeleteModuleOpen(false);
       await fetchTrackDetails();
     } catch (err) {
       console.error(err);
+    } finally {
+      setIsDeletingModule(false);
     }
   };
 
@@ -435,21 +459,30 @@ export default function TrackView() {
   };
 
   const cycleStatus = async (moduleId, currentStatus) => {
+    if (cyclingModuleIds.has(moduleId)) return;
     const statusCycle = { 'todo': 'inprogress', 'inprogress': 'done', 'done': 'todo' };
     const nextStatus = statusCycle[currentStatus] || 'todo';
-    
+
+    setCyclingModuleIds(prev => new Set(prev).add(moduleId));
     try {
       await api.put(`/modules/${moduleId}`, { status: nextStatus });
       await fetchTrackDetails();
     } catch (err) {
       console.error(err);
+    } finally {
+      setCyclingModuleIds(prev => {
+        const next = new Set(prev);
+        next.delete(moduleId);
+        return next;
+      });
     }
   };
 
   const handleCreateCourse = async (e) => {
     e.preventDefault();
-    if (!newCourseName.trim()) return;
+    if (!newCourseName.trim() || isSavingCourse) return;
 
+    setIsSavingCourse(true);
     try {
       await api.post(`/courses/track/${trackId}`, { name: newCourseName });
       window.dispatchEvent(new CustomEvent('show-success', {
@@ -460,13 +493,16 @@ export default function TrackView() {
       await fetchTrackDetails();
     } catch (err) {
       console.error(err);
+    } finally {
+      setIsSavingCourse(false);
     }
   };
 
   const handleCreateModule = async (e) => {
     e.preventDefault();
-    if (!newModuleTitle.trim() || !selectedCourseId) return;
+    if (!newModuleTitle.trim() || !selectedCourseId || isSavingModule) return;
 
+    setIsSavingModule(true);
     try {
       await api.post(`/modules/course/${selectedCourseId}`, {
         title: newModuleTitle,
@@ -481,6 +517,8 @@ export default function TrackView() {
       await fetchTrackDetails();
     } catch (err) {
       console.error(err);
+    } finally {
+      setIsSavingModule(false);
     }
   };
 
@@ -818,10 +856,11 @@ export default function TrackView() {
                               {m.status === 'inprogress' && <span className="module-row-status inprogress">In progress</span>}
                               {m.status === 'todo' && <span className="module-row-status todo">To do</span>}
                               
-                              <button 
-                                className="iconbtn" 
-                                style={{ width: '32px', height: '32px', fontSize: '14px' }}
+                              <button
+                                className="iconbtn"
+                                style={{ width: '32px', height: '32px', fontSize: '14px', opacity: cyclingModuleIds.has(m.id) ? 0.5 : 1, cursor: cyclingModuleIds.has(m.id) ? 'not-allowed' : 'pointer' }}
                                 onClick={() => cycleStatus(m.id, m.status)}
+                                disabled={cyclingModuleIds.has(m.id)}
                                 title="Cycle status"
                               >
                                 <IconRefresh size={14} />
@@ -1031,11 +1070,11 @@ export default function TrackView() {
               </div>
               
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-                <button type="button" className="ghostpill" onClick={() => setIsCourseModalOpen(false)}>
+                <button type="button" className="ghostpill" onClick={() => setIsCourseModalOpen(false)} disabled={isSavingCourse}>
                   Cancel
                 </button>
-                <button type="submit" className="pillbtn">
-                  Add course
+                <button type="submit" className="pillbtn" disabled={isSavingCourse} style={{ opacity: isSavingCourse ? 0.6 : 1, cursor: isSavingCourse ? 'not-allowed' : 'pointer' }}>
+                  {isSavingCourse ? 'Adding…' : 'Add course'}
                 </button>
               </div>
             </form>
@@ -1081,11 +1120,11 @@ export default function TrackView() {
               </div>
               
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-                <button type="button" className="ghostpill" onClick={() => setIsModuleModalOpen(false)}>
+                <button type="button" className="ghostpill" onClick={() => setIsModuleModalOpen(false)} disabled={isSavingModule}>
                   Cancel
                 </button>
-                <button type="submit" className="pillbtn">
-                  Add module
+                <button type="submit" className="pillbtn" disabled={isSavingModule} style={{ opacity: isSavingModule ? 0.6 : 1, cursor: isSavingModule ? 'not-allowed' : 'pointer' }}>
+                  {isSavingModule ? 'Adding…' : 'Add module'}
                 </button>
               </div>
             </form>
@@ -1229,7 +1268,20 @@ export default function TrackView() {
                     setIsEditTrackOpen(false);
                     const isConfirmed = await showConfirm("Are you sure you want to delete this entire track?", "Delete Track");
                     if (isConfirmed) {
-                      api.delete(`/tracks/${trackId}`).then(() => navigate('/tracks'));
+                      api.delete(`/tracks/${trackId}`).then(() => {
+                        try {
+                          localStorage.removeItem('sv_tracks_cache');
+                          localStorage.removeItem('sv_tracks_cache_timestamp');
+                          localStorage.removeItem('sv_dashboard_cache');
+                          localStorage.removeItem('sv_dashboard_cache_timestamp');
+                          localStorage.removeItem('sv_cal_tracks');
+                          localStorage.removeItem('sv_cal_tracks_ts');
+                          localStorage.removeItem('sv_cal_months');
+                          localStorage.removeItem('sv_trackview_cache');
+                          localStorage.removeItem('sv_trackview_cache_ts');
+                        } catch (e) {}
+                        navigate('/tracks');
+                      });
                     }
                   }}
                 >
@@ -1237,14 +1289,14 @@ export default function TrackView() {
                 </button>
                 
                 <div style={{ display: 'flex', gap: '12px' }}>
-                  <button type="button" className="ghostpill" onClick={() => {
+                  <button type="button" className="ghostpill" disabled={isSavingTrack} onClick={() => {
                     setValErrors({ name: '', color: '', emoji: '', combined: '' });
                     setIsEditTrackOpen(false);
                   }}>
                     Cancel
                   </button>
-                  <button type="submit" className="pillbtn">
-                    Save changes
+                  <button type="submit" className="pillbtn" disabled={isSavingTrack} style={{ opacity: isSavingTrack ? 0.6 : 1, cursor: isSavingTrack ? 'not-allowed' : 'pointer' }}>
+                    {isSavingTrack ? 'Saving…' : 'Save changes'}
                   </button>
                 </div>
               </div>
@@ -1274,11 +1326,11 @@ export default function TrackView() {
               </div>
               
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-                <button type="button" className="ghostpill" onClick={() => setIsRenameCourseOpen(false)}>
+                <button type="button" className="ghostpill" disabled={isRenamingCourse} onClick={() => setIsRenameCourseOpen(false)}>
                   Cancel
                 </button>
-                <button type="submit" className="pillbtn">
-                  Rename
+                <button type="submit" className="pillbtn" disabled={isRenamingCourse} style={{ opacity: isRenamingCourse ? 0.6 : 1, cursor: isRenamingCourse ? 'not-allowed' : 'pointer' }}>
+                  {isRenamingCourse ? 'Renaming…' : 'Rename'}
                 </button>
               </div>
             </form>
@@ -1300,11 +1352,17 @@ export default function TrackView() {
             </div>
             
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-              <button type="button" className="ghostpill" onClick={() => setIsDeleteCourseOpen(false)}>
+              <button type="button" className="ghostpill" onClick={() => setIsDeleteCourseOpen(false)} disabled={isDeletingCourse}>
                 Cancel
               </button>
-              <button type="button" className="pillbtn" style={{ background: 'red', color: '#fff' }} onClick={executeDeleteCourse}>
-                Delete permanently
+              <button
+                type="button"
+                className="pillbtn"
+                style={{ background: 'red', color: '#fff', opacity: isDeletingCourse ? 0.6 : 1, cursor: isDeletingCourse ? 'not-allowed' : 'pointer' }}
+                onClick={executeDeleteCourse}
+                disabled={isDeletingCourse}
+              >
+                {isDeletingCourse ? 'Deleting…' : 'Delete permanently'}
               </button>
             </div>
           </div>
@@ -1325,11 +1383,17 @@ export default function TrackView() {
             </div>
             
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-              <button type="button" className="ghostpill" onClick={() => setIsDeleteModuleOpen(false)}>
+              <button type="button" className="ghostpill" onClick={() => setIsDeleteModuleOpen(false)} disabled={isDeletingModule}>
                 Cancel
               </button>
-              <button type="button" className="pillbtn" style={{ background: 'red', color: '#fff' }} onClick={executeDeleteModule}>
-                Delete
+              <button
+                type="button"
+                className="pillbtn"
+                style={{ background: 'red', color: '#fff', opacity: isDeletingModule ? 0.6 : 1, cursor: isDeletingModule ? 'not-allowed' : 'pointer' }}
+                onClick={executeDeleteModule}
+                disabled={isDeletingModule}
+              >
+                {isDeletingModule ? 'Deleting…' : 'Delete'}
               </button>
             </div>
           </div>
