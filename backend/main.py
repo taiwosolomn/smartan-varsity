@@ -1146,22 +1146,39 @@ router_courses = APIRouter(prefix="/courses", tags=["Courses"])
 
 @router_courses.post("/track/{track_id}", response_model=CourseResponse)
 def create_course(track_id: str, course_in: CourseCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    track = db.query(Track).filter(Track.id == track_id, Track.userId == current_user.id).first()
-    if not track:
+    # Combined query: verify ownership AND get the current max course order in one round trip
+    # (outer join so a track with zero courses still returns a row, with max_order = NULL).
+    result = db.query(Track.id, func.max(Course.order).label("max_order")).outerjoin(
+        Course, Course.trackId == Track.id
+    ).filter(Track.id == track_id, Track.userId == current_user.id).group_by(Track.id).first()
+    if not result:
         raise HTTPException(status_code=404, detail="Track not found")
-        
-    max_order = db.query(func.max(Course.order)).filter(Course.trackId == track_id).scalar() or 0
+
+    max_order = result.max_order or 0
+    new_order = max_order + 1
     course_id = generate_id("c")
     course = Course(
         id=course_id,
         trackId=track_id,
         name=course_in.name,
-        order=max_order + 1
+        order=new_order
     )
     db.add(course)
     db.commit()
-    db.refresh(course)
-    return course
+    # Build the response from already-known values instead of db.refresh() — avoids a 5th
+    # round trip, and avoids SQLAlchemy's expire_on_commit re-selecting course's attributes
+    # the moment they are accessed after commit.
+    return CourseResponse(
+        id=course_id,
+        trackId=track_id,
+        name=course_in.name,
+        order=new_order,
+        modules=[],
+        deadline=None,
+        deliverable=None,
+        spans_weeks=None,
+        reference=None,
+    )
 
 @router_courses.put("/reorder")
 def reorder_courses(reorder_in: CourseReorderList, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
