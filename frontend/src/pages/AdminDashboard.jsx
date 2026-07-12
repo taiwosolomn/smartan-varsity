@@ -168,14 +168,14 @@ export default function AdminDashboard() {
     if (activeScope === 'average') {
       return metricsData?.aggregateHours?.avg?.all_time || 0;
     }
-    return metricsData?.aggregateHours?.total[activeScope] || 0;
+    return metricsData?.aggregateHours?.total?.[activeScope] || 0;
   };
 
   const getSessionsValue = () => {
     if (activeScope === 'average') {
       return metricsData?.aggregateSessions?.avg?.all_time || 0;
     }
-    return metricsData?.aggregateSessions?.total[activeScope] || 0;
+    return metricsData?.aggregateSessions?.total?.[activeScope] || 0;
   };
 
   const getLabelSuffix = () => {
