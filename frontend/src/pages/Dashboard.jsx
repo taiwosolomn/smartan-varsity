@@ -118,7 +118,9 @@ export default function Dashboard() {
   
   const [selectedLog, setSelectedLog] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDeletingLog, setIsDeletingLog] = useState(false);
   const [dueData, setDueData] = useState({ due_today: [], this_week: [] });
+  const [completingModuleIds, setCompletingModuleIds] = useState(() => new Set());
   const [loadingDue, setLoadingDue] = useState(true);
   const navigate = useNavigate();
 
@@ -217,6 +219,9 @@ export default function Dashboard() {
   }, []);
 
   const handleCompleteModule = async (moduleId) => {
+    if (completingModuleIds.has(moduleId)) return;
+    setCompletingModuleIds(prev => new Set(prev).add(moduleId));
+
     setDueData(prev => ({
       due_today: prev.due_today.filter(m => m.id !== moduleId),
       this_week: prev.this_week.filter(m => m.id !== moduleId)
@@ -229,12 +234,19 @@ export default function Dashboard() {
     } catch (err) {
       console.error("Failed to complete module", err);
       fetchDueData();
+    } finally {
+      setCompletingModuleIds(prev => {
+        const next = new Set(prev);
+        next.delete(moduleId);
+        return next;
+      });
     }
   };
 
   const handleDeleteLog = async (logId) => {
     const isConfirmed = await showConfirm("Are you sure you want to delete this session log?", "Delete Session Log");
-    if (!isConfirmed) return;
+    if (!isConfirmed || isDeletingLog) return;
+    setIsDeletingLog(true);
     try {
       await api.delete(`/logs/${logId}`);
       setIsModalOpen(false);
@@ -244,6 +256,8 @@ export default function Dashboard() {
     } catch (err) {
       console.error(err);
       showAlert("Failed to delete session log.", "Error");
+    } finally {
+      setIsDeletingLog(false);
     }
   };
 
@@ -458,13 +472,15 @@ export default function Dashboard() {
                     <button
                       className="due-checkbox"
                       onClick={() => handleCompleteModule(mod.id)}
+                      disabled={completingModuleIds.has(mod.id)}
                       style={{
                         width: '20px',
                         height: '20px',
                         borderRadius: '5px',
                         border: '2px solid var(--text-muted)',
                         background: 'transparent',
-                        cursor: 'pointer',
+                        cursor: completingModuleIds.has(mod.id) ? 'not-allowed' : 'pointer',
+                        opacity: completingModuleIds.has(mod.id) ? 0.5 : 1,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -545,13 +561,15 @@ export default function Dashboard() {
                     <button
                       className="due-checkbox"
                       onClick={() => handleCompleteModule(mod.id)}
+                      disabled={completingModuleIds.has(mod.id)}
                       style={{
                         width: '20px',
                         height: '20px',
                         borderRadius: '5px',
                         border: '2px solid var(--text-muted)',
                         background: 'transparent',
-                        cursor: 'pointer',
+                        cursor: completingModuleIds.has(mod.id) ? 'not-allowed' : 'pointer',
+                        opacity: completingModuleIds.has(mod.id) ? 0.5 : 1,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -936,12 +954,13 @@ export default function Dashboard() {
                 {/* Actions bottom */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px', borderTop: '1px solid var(--rail-border)', paddingTop: '20px' }}>
                   
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={() => handleDeleteLog(selectedLog.id)}
-                    style={{ background: 'none', border: 'none', color: '#EF4444', font: '800 13px Urbanist', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
+                    disabled={isDeletingLog}
+                    style={{ background: 'none', border: 'none', color: '#EF4444', font: '800 13px Urbanist', display: 'flex', alignItems: 'center', gap: '6px', cursor: isDeletingLog ? 'not-allowed' : 'pointer', opacity: isDeletingLog ? 0.6 : 1 }}
                   >
-                    <IconTrash size={14} /> Delete
+                    <IconTrash size={14} /> {isDeletingLog ? 'Deleting…' : 'Delete'}
                   </button>
 
                   <div style={{ display: 'flex', gap: '10px' }}>
