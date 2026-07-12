@@ -233,7 +233,7 @@ export default function AdminLeaderboard() {
                     {user.avatarUrl ? (
                       <img src={user.avatarUrl.startsWith('http') ? user.avatarUrl : `${api.defaults.baseURL || ''}${user.avatarUrl}`} alt="Avatar" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
                     ) : (
-                      user.fullName.charAt(0).toUpperCase()
+                      (user.fullName || '?').charAt(0).toUpperCase()
                     )}
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>

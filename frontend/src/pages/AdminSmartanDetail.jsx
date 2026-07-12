@@ -228,7 +228,7 @@ export default function AdminSmartanDetail() {
                 alt="Avatar"
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               />
-            ) : profile.fullName.charAt(0).toUpperCase()}
+            ) : (profile.fullName || '?').charAt(0).toUpperCase()}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>

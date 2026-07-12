@@ -150,7 +150,7 @@ export default function AdminProfile() {
             {profile.avatarUrl ? (
               <img src={profile.avatarUrl.startsWith('http') ? profile.avatarUrl : `${api.defaults.baseURL || ''}${profile.avatarUrl}`} alt="Avatar" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
             ) : (
-              profile.fullName.charAt(0).toUpperCase()
+              (profile.fullName || '?').charAt(0).toUpperCase()
             )}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
