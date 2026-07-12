@@ -2676,6 +2676,7 @@ def update_curriculum_import(
 @router_curriculum.post("/{import_id}/confirm")
 def confirm_curriculum_import(
     import_id: str,
+    overwrite: bool = False,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -2715,6 +2716,25 @@ def confirm_curriculum_import(
         tracks_data = lms.get("tracks", [])
         
         try:
+            uid = current_user.id
+            if overwrite:
+                # Clean up existing tracks, courses, modules, logs, calendar events, resources, milestones
+                db.execute(sqltext("DELETE FROM calendar_events WHERE \"userId\" = :uid"), {"uid": uid})
+                db.execute(sqltext("DELETE FROM session_logs WHERE \"userId\" = :uid"), {"uid": uid})
+                db.execute(sqltext("DELETE FROM milestones WHERE \"userId\" = :uid"), {"uid": uid})
+                db.execute(sqltext("DELETE FROM resources WHERE \"userId\" = :uid"), {"uid": uid})
+                
+                track_ids_res = db.execute(sqltext("SELECT id FROM tracks WHERE \"userId\" = :uid"), {"uid": uid})
+                track_ids = [r[0] for r in track_ids_res]
+                for tid in track_ids:
+                    course_ids_res = db.execute(sqltext("SELECT id FROM courses WHERE \"trackId\" = :tid"), {"tid": tid})
+                    course_ids = [r[0] for r in course_ids_res]
+                    for cid in course_ids:
+                        db.execute(sqltext("DELETE FROM modules WHERE \"courseId\" = :cid"), {"cid": cid})
+                    db.execute(sqltext("DELETE FROM courses WHERE \"trackId\" = :tid"), {"tid": tid})
+                db.execute(sqltext("DELETE FROM tracks WHERE \"userId\" = :uid"), {"uid": uid})
+                db.commit()
+
             max_order = db.execute(sqltext('SELECT COALESCE(MAX("order"), -1) FROM tracks WHERE "userId" = :uid'),
                                    {"uid": current_user.id}).scalar() or -1
 

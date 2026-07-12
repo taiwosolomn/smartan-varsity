@@ -129,6 +129,8 @@ export default function ReviewCurriculum() {
   const [confirmError, setConfirmError] = useState('');
   const [expandedTracks, setExpandedTracks] = useState({});
   const [expandedCourses, setExpandedCourses] = useState({});
+  const [hasExistingTracks, setHasExistingTracks] = useState(false);
+  const [showImportModeDialog, setShowImportModeDialog] = useState(false);
   const debounceRef = useRef(null);
 
   // Load import data
@@ -149,6 +151,16 @@ export default function ReviewCurriculum() {
           const tExp = {};
           lms.tracks.forEach((t, i) => { tExp[i] = true; });
           setExpandedTracks(tExp);
+        }
+
+        // Check if user already has tracks
+        try {
+          const tracksRes = await api.get('/tracks');
+          if (tracksRes.data && tracksRes.data.length > 0) {
+            setHasExistingTracks(true);
+          }
+        } catch (te) {
+          console.error('Failed to fetch existing tracks', te);
         }
       } catch (err) {
         console.error('Failed to load import', err);
@@ -193,11 +205,11 @@ export default function ReviewCurriculum() {
     }
   };
 
-  const handleConfirm = async () => {
+  const handleConfirm = async (overwrite = false) => {
     setConfirming(true);
     setConfirmError('');
     try {
-      await api.post(`/curriculum-imports/${importId}/confirm`);
+      await api.post(`/curriculum-imports/${importId}/confirm?overwrite=${overwrite}`);
       // Clear ALL frontend caches so every page shows fresh data immediately
       try {
         localStorage.removeItem('sv_tracks_cache');
@@ -222,6 +234,14 @@ export default function ReviewCurriculum() {
       }
     } finally {
       setConfirming(false);
+    }
+  };
+
+  const triggerConfirmFlow = () => {
+    if (hasExistingTracks) {
+      setShowImportModeDialog(true);
+    } else {
+      handleConfirm(false);
     }
   };
 
@@ -295,7 +315,7 @@ export default function ReviewCurriculum() {
             id="curriculum-confirm-btn"
             className="pillbtn"
             disabled={hasErrors || confirming}
-            onClick={handleConfirm}
+            onClick={triggerConfirmFlow}
             style={{
               opacity: hasErrors || confirming ? 0.5 : 1,
               cursor: hasErrors || confirming ? 'not-allowed' : 'pointer',
@@ -528,7 +548,7 @@ export default function ReviewCurriculum() {
             id="curriculum-confirm-btn-bottom"
             className="pillbtn"
             disabled={hasErrors || confirming}
-            onClick={handleConfirm}
+            onClick={triggerConfirmFlow}
             style={{
               opacity: hasErrors || confirming ? 0.5 : 1,
               cursor: hasErrors || confirming ? 'not-allowed' : 'pointer',
@@ -543,6 +563,58 @@ export default function ReviewCurriculum() {
           </button>
         </div>
       </div>
+
+      {showImportModeDialog && (
+        <div className="scrim" onClick={() => setShowImportModeDialog(false)}>
+          <div className="card" onClick={e => e.stopPropagation()} style={{
+            width: '100%', maxWidth: '480px', padding: '32px',
+            display: 'flex', flexDirection: 'column', gap: '20px',
+            position: 'relative'
+          }}>
+            <span className="modal-close" onClick={() => setShowImportModeDialog(false)}>×</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(229,168,60,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <IconAlertCircle size={20} style={{ color: '#E5A83C' }} />
+              </div>
+              <h3 style={{ font: '900 18px Urbanist', color: 'var(--text)', margin: 0 }}>Existing Tracks Detected</h3>
+            </div>
+
+            <p style={{ font: '600 13.5px/1.6 Urbanist', color: 'var(--text-muted)', margin: 0 }}>
+              You already have active tracks in your account. Would you like to overwrite your existing study tracks or append the new imported tracks?
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '10px' }}>
+              <button
+                className="pillbtn"
+                style={{ background: 'var(--accent, #C25A3A)', color: '#fff', justifyContent: 'center', width: '100%' }}
+                onClick={() => {
+                  setShowImportModeDialog(false);
+                  handleConfirm(true); // Overwrite = true
+                }}
+              >
+                Overwrite existing tracks (Clean start)
+              </button>
+              <button
+                className="ghostpill"
+                style={{ width: '100%', justifyContent: 'center' }}
+                onClick={() => {
+                  setShowImportModeDialog(false);
+                  handleConfirm(false); // Overwrite = false
+                }}
+              >
+                Add alongside existing tracks (Append)
+              </button>
+              <button
+                className="ghostpill"
+                style={{ width: '100%', justifyContent: 'center', borderColor: 'transparent', color: 'var(--text-muted)' }}
+                onClick={() => setShowImportModeDialog(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
