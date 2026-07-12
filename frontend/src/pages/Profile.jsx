@@ -45,6 +45,7 @@ export default function Profile() {
   const [newGoalText, setNewGoalText] = useState('');
   const [newGoalTarget, setNewGoalTarget] = useState('');
   const [saving, setSaving] = useState(false);
+  const [isRemovingAvatar, setIsRemovingAvatar] = useState(false);
 
   // ── Avatar crop state ─────────────────────────────────────────────────────
   const [pendingAvatarUrl, setPendingAvatarUrl] = useState(null);
@@ -200,12 +201,16 @@ export default function Profile() {
   };
 
   const handleRemoveAvatar = async () => {
+    if (isRemovingAvatar) return;
+    setIsRemovingAvatar(true);
     try {
       await api.delete('/auth/avatar');
       await fetchProfileData();
       await fetchUser();
     } catch (err) {
       console.error('Remove avatar failed', err);
+    } finally {
+      setIsRemovingAvatar(false);
     }
   };
 
@@ -722,14 +727,17 @@ export default function Profile() {
                       <button
                         type="button"
                         onClick={handleRemoveAvatar}
+                        disabled={isRemovingAvatar}
                         style={{
                           padding: '9px 18px', borderRadius: '99px',
                           background: 'transparent', color: '#ef4444',
                           font: '700 13px Urbanist',
-                          border: '1.5px solid rgba(239,68,68,0.25)', cursor: 'pointer',
+                          border: '1.5px solid rgba(239,68,68,0.25)',
+                          cursor: isRemovingAvatar ? 'not-allowed' : 'pointer',
+                          opacity: isRemovingAvatar ? 0.6 : 1,
                         }}
                       >
-                        Remove
+                        {isRemovingAvatar ? 'Removing…' : 'Remove'}
                       </button>
                     )}
                   </div>
