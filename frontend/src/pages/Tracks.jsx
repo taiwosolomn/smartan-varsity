@@ -880,7 +880,7 @@ export default function Tracks() {
                       </div>
                       <div style={{ font: '600 11px Urbanist', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
                         <span style={{ display: 'inline-block', width: '5px', height: '5px', borderRadius: '50%', background: newTrackColor }}></span>
-                        {newTrackPhase}
+                        {newTrackSemester}
                       </div>
                       <div style={{ font: '600 10.5px Urbanist', color: 'var(--text-muted)' }}>
                         0 courses · 0 of 0 complete
