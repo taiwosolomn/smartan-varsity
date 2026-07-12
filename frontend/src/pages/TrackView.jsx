@@ -1296,7 +1296,7 @@ export default function TrackView() {
             </div>
             
             <div style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '24px', lineHeight: '1.5', fontWeight: 600 }}>
-              Are you sure you want to delete the course <b>\"${deleteCourseName}\"</b> and all its modules? This action cannot be undone.
+              Are you sure you want to delete the course <b>"{deleteCourseName}"</b> and all its modules? This action cannot be undone.
             </div>
             
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
@@ -1321,7 +1321,7 @@ export default function TrackView() {
             </div>
             
             <div style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '24px', lineHeight: '1.5', fontWeight: 600 }}>
-              Are you sure you want to delete the module <b>\"${deleteModuleTitle}\"</b>? This action cannot be undone.
+              Are you sure you want to delete the module <b>"{deleteModuleTitle}"</b>? This action cannot be undone.
             </div>
             
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
