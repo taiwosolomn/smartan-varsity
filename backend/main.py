@@ -31,12 +31,14 @@ from auth import get_current_user, get_token_payload, get_current_admin
 # PostgreSQL: all columns are defined in models.py — no ALTER TABLE migrations needed
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Smartan Varsity API", version="1.0")
+# Ensure static directories exist dynamically regardless of the process working directory
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+os.makedirs(os.path.join(STATIC_DIR, "avatars"), exist_ok=True)
+os.makedirs(os.path.join(STATIC_DIR, "tracks"), exist_ok=True)
 
-# Ensure static directories exist
-os.makedirs("backend/static/avatars", exist_ok=True)
-os.makedirs("backend/static/tracks", exist_ok=True)
-app.mount("/static", StaticFiles(directory="backend/static"), name="static")
+app = FastAPI(title="Smartan Varsity API", version="1.0")
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 # Compress all responses >= 1KB with gzip (reduces payload size by 70-90%)
 app.add_middleware(GZipMiddleware, minimum_size=1000)
@@ -494,7 +496,7 @@ def upload_avatar(file: UploadFile = File(...), current_user: User = Depends(get
         raise HTTPException(status_code=400, detail="File must be an image")
     file_ext = os.path.splitext(file.filename)[1]
     file_name = f"{current_user.id}_{int(datetime.datetime.utcnow().timestamp())}{file_ext}"
-    file_path = os.path.join("backend/static/avatars", file_name)
+    file_path = os.path.join(STATIC_DIR, "avatars", file_name)
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
     avatar_url = f"/static/avatars/{file_name}"
@@ -935,7 +937,7 @@ def upload_track_icon(file: UploadFile = File(...), current_user: User = Depends
             bg = PILImage.new("RGB", resized.size, (255, 255, 255))
             bg.paste(resized, mask=resized.split()[3] if resized.mode == 'RGBA' else None)
             fname = f"{base_name}_{label}.jpg"
-            fpath = os.path.join("backend/static/tracks", fname)
+            fpath = os.path.join(STATIC_DIR, "tracks", fname)
             bg.save(fpath, "JPEG", quality=90)
             urls[label] = f"/static/tracks/{fname}"
         return {"iconUrl": urls["full"], "thumbUrl": urls["thumb"]}
@@ -944,7 +946,7 @@ def upload_track_icon(file: UploadFile = File(...), current_user: User = Depends
         # Pillow not installed — fall back to raw save
         file_ext = os.path.splitext(file.filename)[1] or ".jpg"
         file_name = f"track_{uuid.uuid4().hex}{file_ext}"
-        file_path = os.path.join("backend/static/tracks", file_name)
+        file_path = os.path.join(STATIC_DIR, "tracks", file_name)
         with open(file_path, "wb") as buffer:
             buffer.write(contents)
         icon_url = f"/static/tracks/{file_name}"
@@ -1001,33 +1003,37 @@ def validate_track_uniqueness(
         return hue_diff < 15 and abs(s1 - s2) < 15 and abs(l1 - l2) < 10
 
     # 2. Name already exists (case-insensitive & whitespace trimmed)
-    normalized_target_name = re.sub(r'\s+', ' ', name.strip().lower())
+    normalized_target_name = re.sub(r'\s+', ' ', (name or '').strip().lower())
     for t in existing_tracks:
-        normalized_existing_name = re.sub(r'\s+', ' ', t.name.strip().lower())
+        normalized_existing_name = re.sub(r'\s+', ' ', (t.name or '').strip().lower())
         if normalized_target_name == normalized_existing_name:
             raise HTTPException(status_code=409, detail=f"You already have a track called '{t.name}'. Choose a different name.")
 
     # 3. Check for Colour AND emoji both match existing track (highest precedence collision check)
     for t in existing_tracks:
-        hex_match = t.color.lower().strip() == color.lower().strip()
+        t_color = t.color or ""
+        color_val = color or ""
+        hex_match = t_color.lower().strip() == color_val.lower().strip()
         hsl_match = False
         if t.hslHue is not None:
             hsl_match = is_similar_color(target_h, target_s, target_l, t.hslHue, t.hslSaturation, t.hslLightness)
-        if (hex_match or hsl_match) and t.icon == icon:
+        if (hex_match or hsl_match) and icon and t.icon == icon:
             raise HTTPException(status_code=409, detail=f"This combination is identical to {t.name}. Change at least one.")
 
     # 4. Colour too similar to existing
     for t in existing_tracks:
-        hex_match = t.color.lower().strip() == color.lower().strip()
+        t_color = t.color or ""
+        color_val = color or ""
+        hex_match = t_color.lower().strip() == color_val.lower().strip()
         hsl_match = False
         if t.hslHue is not None:
             hsl_match = is_similar_color(target_h, target_s, target_l, t.hslHue, t.hslSaturation, t.hslLightness)
         if hex_match or hsl_match:
-            raise HTTPException(status_code=409, detail=f"Colour is too close to your {t.name} track ({t.color}).")
+            raise HTTPException(status_code=409, detail=f"Colour is too close to your {t.name} track ({t_color}).")
 
     # 5. Emoji uniqueness — only enforced for emoji-type icons
     for t in existing_tracks:
-        if t.icon == icon and not (icon.startswith('/') or icon.startswith('http')):
+        if icon and t.icon == icon and not (icon.startswith('/') or icon.startswith('http')):
             raise HTTPException(status_code=409, detail=f"{icon} is already used by {t.name}.")
 
 @router_tracks.post("", response_model=TrackResponse)
