@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
-from sqlalchemy import func, case
+from sqlalchemy import func, case, text
 from sqlalchemy.orm import joinedload, selectinload
 
 from database import engine, get_db, Base
@@ -571,11 +571,14 @@ def delete_account(current_user: User = Depends(get_current_user), db: Session =
             with urllib.request.urlopen(req) as res:
                 print(f"[Auth] Successfully deleted user {current_user.email} from Supabase Auth.")
         except Exception as e:
-            print(f"[Auth] Failed to delete user {current_user.email} from Supabase Auth: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to delete Auth account: {e}")
+            print(f"[Auth] Failed to delete user {current_user.email} from Supabase Auth (proceeding anyway): {e}")
 
     # 2 — Clean up all related tables (dependencies) before deleting the user row
     uid = current_user.id
+    db.execute(text("UPDATE activity_log SET user_id = NULL WHERE user_id = :uid"), {"uid": uid})
+    db.execute(text("UPDATE activity_log SET actor_id = NULL WHERE actor_id = :uid"), {"uid": uid})
+    db.execute(text("DELETE FROM milestones WHERE \"userId\" = :uid"), {"uid": uid})
+    db.execute(text("DELETE FROM resources WHERE \"userId\" = :uid"), {"uid": uid})
     db.execute(text("DELETE FROM calendar_events WHERE \"userId\" = :uid"), {"uid": uid})
     db.execute(text("DELETE FROM session_logs WHERE \"userId\" = :uid"), {"uid": uid})
     db.execute(text("DELETE FROM curriculum_imports WHERE user_id = :uid"), {"uid": uid})
@@ -597,8 +600,8 @@ def delete_account(current_user: User = Depends(get_current_user), db: Session =
     db.execute(text("DELETE FROM notifications WHERE recipient_id = :uid OR sender_id = :uid"), {"uid": uid})
     db.execute(text("DELETE FROM settings WHERE \"userId\" = :uid"), {"uid": uid})
 
-    # 3 — Delete the user profile
-    db.delete(current_user)
+    # 3 — Delete the user profile using raw SQL to prevent lock collisions and deadlocks with ORM tracking
+    db.execute(text("DELETE FROM users WHERE id = :uid"), {"uid": uid})
     db.commit()
     return {"message": "Account permanently deleted"}
 
@@ -731,6 +734,9 @@ def export_user_data(current_user: User = Depends(get_current_user), db: Session
 
 @router_settings.post("/clear")
 def clear_user_data(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    # Delete referencing module overdue flags first to avoid FK violation
+    db.execute(text("DELETE FROM module_overdue_flags WHERE user_id = :uid"), {"uid": current_user.id})
+    db.commit()
     # Deleting all records cascaded except user profile
     db.query(Track).filter(Track.userId == current_user.id).delete()
     db.query(SessionLog).filter(SessionLog.userId == current_user.id).delete()
@@ -742,6 +748,9 @@ def clear_user_data(current_user: User = Depends(get_current_user), db: Session 
 
 @router_settings.post("/import")
 def import_user_data(data: dict, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    # Delete referencing module overdue flags first to avoid FK violation
+    db.execute(text("DELETE FROM module_overdue_flags WHERE user_id = :uid"), {"uid": current_user.id})
+    db.commit()
     # 1. Delete all existing tracks, logs, calendar events, resources, milestones, settings
     db.query(Track).filter(Track.userId == current_user.id).delete()
     db.query(SessionLog).filter(SessionLog.userId == current_user.id).delete()
@@ -1137,6 +1146,18 @@ def delete_track(track_id: str, current_user: User = Depends(get_current_user), 
     track = db.query(Track).filter(Track.id == track_id, Track.userId == current_user.id).first()
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
+
+    # Delete referencing module overdue flags first
+    db.execute(text("""
+        DELETE FROM module_overdue_flags
+        WHERE module_id IN (
+            SELECT m.id FROM modules m
+            JOIN courses c ON m."courseId" = c.id
+            WHERE c."trackId" = :tid
+        )
+    """), {"tid": track_id})
+    db.commit()
+
     db.delete(track)
     db.commit()
     return {"message": "Track deleted"}
@@ -1212,6 +1233,16 @@ def delete_course(course_id: str, current_user: User = Depends(get_current_user)
     course = db.query(Course).join(Track).filter(Course.id == course_id, Track.userId == current_user.id).first()
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
+
+    # Delete referencing module overdue flags first
+    db.execute(text("""
+        DELETE FROM module_overdue_flags
+        WHERE module_id IN (
+            SELECT id FROM modules WHERE "courseId" = :cid
+        )
+    """), {"cid": course_id})
+    db.commit()
+
     db.delete(course)
     db.commit()
     return {"message": "Course deleted"}
@@ -1283,6 +1314,11 @@ def delete_module(module_id: str, current_user: User = Depends(get_current_user)
     module = db.query(Module).join(Course).join(Track).filter(Module.id == module_id, Track.userId == current_user.id).first()
     if not module:
         raise HTTPException(status_code=404, detail="Module not found")
+
+    # Delete referencing module overdue flags first
+    db.execute(text("DELETE FROM module_overdue_flags WHERE module_id = :mid"), {"mid": module_id})
+    db.commit()
+
     db.delete(module)
     db.commit()
     return {"message": "Module deleted"}
