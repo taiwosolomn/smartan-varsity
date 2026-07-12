@@ -4,17 +4,25 @@ import TrackIconRenderer from './components/TrackIconRenderer.jsx';
 import { supabase } from './supabaseClient';
 
 const RAILWAY_URL = 'https://smartan-varsity-production.up.railway.app';
-const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+const currentHost = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+const isLocal = typeof window !== 'undefined' && (
+  currentHost === 'localhost' || 
+  currentHost === '127.0.0.1' || 
+  currentHost.startsWith('192.168.') || 
+  currentHost.startsWith('10.') || 
+  currentHost.startsWith('172.') ||
+  currentHost.endsWith('.local')
+);
 
 let resolvedApiUrl = import.meta.env.VITE_API_URL || '';
 
 // Force production builds on Vercel to use Railway backend even if Vercel has localhost hardcoded in settings
-if (typeof window !== 'undefined' && !isLocalhost) {
+if (typeof window !== 'undefined' && !isLocal) {
   if (!resolvedApiUrl || resolvedApiUrl.includes('localhost') || resolvedApiUrl.includes('127.0.0.1')) {
     resolvedApiUrl = RAILWAY_URL;
   }
-} else if (isLocalhost && !resolvedApiUrl) {
-  resolvedApiUrl = 'http://localhost:8000';
+} else if (isLocal && !resolvedApiUrl) {
+  resolvedApiUrl = `http://${currentHost}:8000`;
 }
 
 export const API_URL = resolvedApiUrl;
