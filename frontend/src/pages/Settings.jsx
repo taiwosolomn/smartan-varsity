@@ -28,10 +28,14 @@ export default function Settings() {
   // Modals Open States
   const [isChangeEmailOpen, setIsChangeEmailOpen] = useState(false);
   const [isChangeUsernameOpen, setIsChangeUsernameOpen] = useState(false);
+  const [isSavingUsername, setIsSavingUsername] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [isWeeklyPreviewOpen, setIsWeeklyPreviewOpen] = useState(false);
   const [isDeleteAccountOpen, setIsDeleteAccountOpen] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [isImportConfirmOpen, setIsImportConfirmOpen] = useState(false);
+  const [importFileContent, setImportFileContent] = useState(null);
+  const [isImportingData, setIsImportingData] = useState(false);
 
   // Form Inputs
   const [newEmail, setNewEmail] = useState('');
@@ -131,10 +135,11 @@ export default function Settings() {
 
   const handleSaveUsername = async (e) => {
     e.preventDefault();
-    if (!usernameAvailability.available) {
-      showMessage('Username is not available');
+    if (!usernameAvailability.available || isSavingUsername) {
+      if (!usernameAvailability.available) showMessage('Username is not available');
       return;
     }
+    setIsSavingUsername(true);
     try {
       await api.post('/auth/change-username', {
         newUsername: newUsername,
@@ -147,6 +152,7 @@ export default function Settings() {
     } catch (err) {
       console.error(err);
       showMessage(err.response?.data?.detail || 'Failed to change username');
+      setIsSavingUsername(false);
     }
   };
 
@@ -191,6 +197,8 @@ export default function Settings() {
       showAlert("Please type 'DELETE' to confirm deletion.", "Action Required");
       return;
     }
+    if (isDeletingAccount) return;
+    setIsDeletingAccount(true);
     try {
       await api.delete('/auth/delete-account');
       await supabase.auth.signOut();
@@ -204,6 +212,7 @@ export default function Settings() {
     } catch (err) {
       console.error(err);
       showMessage('Failed to delete account');
+      setIsDeletingAccount(false);
     }
   };
 
@@ -242,7 +251,8 @@ export default function Settings() {
   };
 
   const executeImportData = async () => {
-    if (!importFileContent) return;
+    if (!importFileContent || isImportingData) return;
+    setIsImportingData(true);
     try {
       await api.post('/settings/import', importFileContent);
       setIsImportConfirmOpen(false);
@@ -251,6 +261,7 @@ export default function Settings() {
     } catch (err) {
       console.error("Import error", err);
       showMessage("Import failed. Ensure schema matches.");
+      setIsImportingData(false);
     }
   };
 
@@ -896,8 +907,15 @@ export default function Settings() {
                 )}
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '8px' }}>
-                <button type="button" className="ghostpill" onClick={() => setIsChangeUsernameOpen(false)}>Cancel</button>
-                <button type="submit" className="pillbtn" disabled={!usernameAvailability.available}>Save Username</button>
+                <button type="button" className="ghostpill" disabled={isSavingUsername} onClick={() => setIsChangeUsernameOpen(false)}>Cancel</button>
+                <button
+                  type="submit"
+                  className="pillbtn"
+                  disabled={!usernameAvailability.available || isSavingUsername}
+                  style={{ opacity: (!usernameAvailability.available || isSavingUsername) ? 0.6 : 1 }}
+                >
+                  {isSavingUsername ? 'Saving…' : 'Save Username'}
+                </button>
               </div>
             </form>
           </div>
@@ -1047,11 +1065,17 @@ export default function Settings() {
             </div>
             
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-              <button type="button" className="ghostpill" onClick={() => setIsImportConfirmOpen(false)}>
+              <button type="button" className="ghostpill" onClick={() => setIsImportConfirmOpen(false)} disabled={isImportingData}>
                 Cancel
               </button>
-              <button type="button" className="pillbtn" style={{ background: 'red', color: '#fff' }} onClick={executeImportData}>
-                Overwrite & Restore
+              <button
+                type="button"
+                className="pillbtn"
+                style={{ background: 'red', color: '#fff', opacity: isImportingData ? 0.6 : 1, cursor: isImportingData ? 'not-allowed' : 'pointer' }}
+                onClick={executeImportData}
+                disabled={isImportingData}
+              >
+                {isImportingData ? 'Restoring…' : 'Overwrite & Restore'}
               </button>
             </div>
           </div>
@@ -1085,14 +1109,14 @@ export default function Settings() {
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '8px' }}>
-                <button type="button" className="ghostpill" onClick={() => setIsDeleteAccountOpen(false)}>Cancel</button>
-                <button 
-                  type="submit" 
-                  className="pillbtn" 
-                  style={{ background: '#EF4444', color: '#fff' }}
-                  disabled={deleteConfirmText !== 'DELETE'}
+                <button type="button" className="ghostpill" onClick={() => setIsDeleteAccountOpen(false)} disabled={isDeletingAccount}>Cancel</button>
+                <button
+                  type="submit"
+                  className="pillbtn"
+                  style={{ background: '#EF4444', color: '#fff', opacity: (deleteConfirmText !== 'DELETE' || isDeletingAccount) ? 0.6 : 1 }}
+                  disabled={deleteConfirmText !== 'DELETE' || isDeletingAccount}
                 >
-                  Delete Account Permanently
+                  {isDeletingAccount ? 'Deleting…' : 'Delete Account Permanently'}
                 </button>
               </div>
             </form>
