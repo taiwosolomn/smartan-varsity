@@ -819,10 +819,10 @@ export default function LogSession() {
             {/* TIME GAP WITH NATIVE MOBILE OR DESKTOP SELECTOR */}
             <div style={{ marginBottom: '28px' }}>
               <label className="flabel">TIME GAP</label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', position: 'relative' }}>
-                
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px', position: 'relative' }}>
+
                 {/* START TIME FIELD */}
-                <div style={{ position: 'relative', flex: 1 }}>
+                <div style={{ position: 'relative', flex: '1 1 120px', minWidth: 0 }}>
                   <input 
                     type={isMobile ? "time" : "text"} 
                     className="field" 
@@ -864,7 +864,7 @@ export default function LogSession() {
                 <span style={{ font: '700 13px Urbanist', color: 'var(--text-muted)' }}>to</span>
 
                 {/* END TIME FIELD */}
-                <div style={{ position: 'relative', flex: 1 }}>
+                <div style={{ position: 'relative', flex: '1 1 120px', minWidth: 0 }}>
                   <input 
                     type={isMobile ? "time" : "text"} 
                     className="field" 
@@ -913,9 +913,9 @@ export default function LogSession() {
 
             {/* DATE & MILESTONE REACHED SIDE-BY-SIDE */}
             <div style={{ marginBottom: '28px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', alignItems: 'end' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '20px', alignItems: 'end' }}>
                 {/* DATE */}
-                <div>
+                <div style={{ minWidth: 0 }}>
                   <label className="flabel">DATE</label>
                   <input
                     type="date"
@@ -939,7 +939,7 @@ export default function LogSession() {
                 </div>
 
                 {/* MILESTONE TOGGLE */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: 0 }}>
                   <label className="flabel">MILESTONE REACHED?</label>
                   <div style={{ background: 'var(--input-bg)', border: '1.5px solid var(--input-border)', borderRadius: '12px', height: '42px', padding: '0 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text)' }}>Mark as milestone</span>

@@ -362,12 +362,12 @@ export default function Profile() {
 
         <div className="profile-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           {/* Avatar + details */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '22px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '22px', minWidth: 0, width: '100%' }}>
             {/* Clickable avatar */}
             <div
               onClick={() => fileInputRef.current?.click()}
               title="Click to change avatar"
-              style={{ ...avatarCircle(76, 22), cursor: 'pointer', position: 'relative' }}
+              style={{ ...avatarCircle(76, 22), cursor: 'pointer', position: 'relative', flexShrink: 0 }}
             >
               {avatarSrc
                 ? <img src={avatarSrc} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -388,9 +388,9 @@ export default function Profile() {
             </div>
 
             {/* Name / tagline / mission badge */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <h2 style={{ font: '900 25px/1.15 Urbanist', color: 'var(--text)', margin: 0 }}>{user.fullName}</h2>
-              <p style={{ font: '600 13.5px Urbanist', color: 'var(--text-muted)', margin: 0 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: 0 }}>
+              <h2 style={{ font: '900 25px/1.15 Urbanist', color: 'var(--text)', margin: 0, overflowWrap: 'break-word', wordBreak: 'break-word' }}>{user.fullName}</h2>
+              <p style={{ font: '600 13.5px Urbanist', color: 'var(--text-muted)', margin: 0, overflowWrap: 'break-word', wordBreak: 'break-word' }}>
                 {user.location || 'No tagline set.'}
               </p>
               {user.mission && (

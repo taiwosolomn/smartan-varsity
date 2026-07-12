@@ -396,8 +396,8 @@ function Layout({ children }) {
               </button>
               
               {isNotifOpen && (
-                <div 
-                  className="card"
+                <div
+                  className="card notif-dropdown"
                   style={{
                     position: 'absolute',
                     top: '40px',
@@ -934,8 +934,8 @@ function AdminLayout({ children }) {
               </button>
               
               {isNotifOpen && (
-                <div 
-                  className="card"
+                <div
+                  className="card notif-dropdown"
                   style={{
                     position: 'absolute',
                     top: '40px',
