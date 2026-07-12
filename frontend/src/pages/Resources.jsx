@@ -65,14 +65,17 @@ export default function Resources() {
   const [editTrackId, setEditTrackId] = useState('');
   const [editUrl, setEditUrl] = useState('');
   const [editNotes, setEditNotes] = useState('');
+  const [isSavingEditResource, setIsSavingEditResource] = useState(false);
 
   // Expander inline edit states
   const [expandedCardId, setExpandedCardId] = useState(null);
   const [editingNotesId, setEditingNotesId] = useState(null);
   const [tempNotesText, setTempNotesText] = useState('');
-  
+  const [isSavingNotesInline, setIsSavingNotesInline] = useState(false);
+
   const [editingUrlId, setEditingUrlId] = useState(null);
   const [tempUrlText, setTempUrlText] = useState('');
+  const [isSavingUrlInline, setIsSavingUrlInline] = useState(false);
 
   // Inline delete confirm
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
@@ -356,6 +359,8 @@ export default function Resources() {
   };
 
   const handleSaveNotesInline = async (id, currentRes) => {
+    if (isSavingNotesInline) return;
+    setIsSavingNotesInline(true);
     try {
       const updatedNotes = tempNotesText.trim() || null;
       const payload = {
@@ -366,18 +371,26 @@ export default function Resources() {
         notes: updatedNotes
       };
       const res = await api.put(`/resources/${id}`, payload);
-      
+
       const updatedList = resources.map(r => r.id === id ? res.data : r);
       setResources(updatedList);
-      resourcesCache = updatedList;
+      const updatedCache = { tracks, resources: updatedList };
+      resourcesCache = updatedCache;
+      try {
+        localStorage.setItem('sv_resources_cache', JSON.stringify(updatedCache));
+      } catch (e) {}
 
       setEditingNotesId(null);
     } catch (err) {
       console.error(err);
+    } finally {
+      setIsSavingNotesInline(false);
     }
   };
 
   const handleSaveUrlInline = async (id, currentRes) => {
+    if (isSavingUrlInline) return;
+    setIsSavingUrlInline(true);
     try {
       const updatedUrl = tempUrlText.trim() || null;
       const payload = {
@@ -388,14 +401,20 @@ export default function Resources() {
         notes: currentRes.notes
       };
       const res = await api.put(`/resources/${id}`, payload);
-      
+
       const updatedList = resources.map(r => r.id === id ? res.data : r);
       setResources(updatedList);
-      resourcesCache = updatedList;
+      const updatedCache = { tracks, resources: updatedList };
+      resourcesCache = updatedCache;
+      try {
+        localStorage.setItem('sv_resources_cache', JSON.stringify(updatedCache));
+      } catch (e) {}
 
       setEditingUrlId(null);
     } catch (err) {
       console.error(err);
+    } finally {
+      setIsSavingUrlInline(false);
     }
   };
 
@@ -412,6 +431,8 @@ export default function Resources() {
 
   const handleUpdateResource = async (e) => {
     e.preventDefault();
+    if (isSavingEditResource) return;
+    setIsSavingEditResource(true);
     try {
       const payload = {
         title: editTitle.trim(),
@@ -425,7 +446,11 @@ export default function Resources() {
 
       const updatedList = resources.map(r => r.id === editResourceId ? res.data : r);
       setResources(updatedList);
-      resourcesCache = updatedList;
+      const updatedCache = { tracks, resources: updatedList };
+      resourcesCache = updatedCache;
+      try {
+        localStorage.setItem('sv_resources_cache', JSON.stringify(updatedCache));
+      } catch (e) {}
 
       setIsEditModalOpen(false);
       window.dispatchEvent(new CustomEvent('show-success', {
@@ -433,6 +458,8 @@ export default function Resources() {
       }));
     } catch (err) {
       console.error(err);
+    } finally {
+      setIsSavingEditResource(false);
     }
   };
 
@@ -1136,11 +1163,11 @@ export default function Resources() {
                               autoFocus
                             />
                             <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                              <button className="ghostpill" onClick={() => setEditingNotesId(null)} style={{ padding: '4px 10px', fontSize: '11px' }}>
+                              <button className="ghostpill" disabled={isSavingNotesInline} onClick={() => setEditingNotesId(null)} style={{ padding: '4px 10px', fontSize: '11px' }}>
                                 Cancel
                               </button>
-                              <button className="pillbtn" onClick={() => handleSaveNotesInline(r.id, r)} style={{ padding: '4px 10px', fontSize: '11px' }}>
-                                Save
+                              <button className="pillbtn" disabled={isSavingNotesInline} onClick={() => handleSaveNotesInline(r.id, r)} style={{ padding: '4px 10px', fontSize: '11px', opacity: isSavingNotesInline ? 0.6 : 1, cursor: isSavingNotesInline ? 'not-allowed' : 'pointer' }}>
+                                {isSavingNotesInline ? 'Saving…' : 'Save'}
                               </button>
                             </div>
                           </div>
@@ -1184,11 +1211,11 @@ export default function Resources() {
                                 autoFocus
                               />
                               <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                                <button className="ghostpill" onClick={() => setEditingUrlId(null)} style={{ padding: '4px 10px', fontSize: '11px' }}>
+                                <button className="ghostpill" disabled={isSavingUrlInline} onClick={() => setEditingUrlId(null)} style={{ padding: '4px 10px', fontSize: '11px' }}>
                                   Cancel
                                 </button>
-                                <button className="pillbtn" onClick={() => handleSaveUrlInline(r.id, r)} style={{ padding: '4px 10px', fontSize: '11px' }}>
-                                  Save URL
+                                <button className="pillbtn" disabled={isSavingUrlInline} onClick={() => handleSaveUrlInline(r.id, r)} style={{ padding: '4px 10px', fontSize: '11px', opacity: isSavingUrlInline ? 0.6 : 1, cursor: isSavingUrlInline ? 'not-allowed' : 'pointer' }}>
+                                  {isSavingUrlInline ? 'Saving…' : 'Save URL'}
                                 </button>
                               </div>
                             </div>
@@ -1611,11 +1638,11 @@ export default function Resources() {
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '10px' }}>
-                <button type="button" className="ghostpill" onClick={() => setIsEditModalOpen(false)}>
+                <button type="button" className="ghostpill" disabled={isSavingEditResource} onClick={() => setIsEditModalOpen(false)}>
                   Cancel
                 </button>
-                <button type="submit" className="pillbtn">
-                  Save changes
+                <button type="submit" className="pillbtn" disabled={isSavingEditResource} style={{ opacity: isSavingEditResource ? 0.6 : 1, cursor: isSavingEditResource ? 'not-allowed' : 'pointer' }}>
+                  {isSavingEditResource ? 'Saving…' : 'Save changes'}
                 </button>
               </div>
             </form>
