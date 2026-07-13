@@ -514,8 +514,8 @@ function Layout({ children }) {
                     </span>
                   </div>
                   
-                  <Link 
-                    to="/profile" 
+                  <Link
+                    to="/profile"
                     onClick={() => setIsProfileMenuOpen(false)}
                     style={{
                       display: 'flex',
@@ -535,8 +535,73 @@ function Layout({ children }) {
                     <span>View Profile</span>
                   </Link>
 
-                  <Link 
-                    to="/settings" 
+                  {/* On mobile the sidebar rail is hidden and these pages aren't in the
+                      5-slot bottom nav — this dropdown is the only way to reach them. */}
+                  <Link
+                    to="/analytics"
+                    onClick={() => setIsProfileMenuOpen(false)}
+                    className="profile-dropdown-item"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '8px 16px',
+                      color: 'var(--text)',
+                      font: '700 13px Urbanist',
+                      textDecoration: 'none',
+                      cursor: 'pointer',
+                      minHeight: '44px',
+                      boxSizing: 'border-box'
+                    }}
+                  >
+                    <IconChartBar size={16} />
+                    <span>Analytics</span>
+                  </Link>
+
+                  <Link
+                    to="/calendar"
+                    onClick={() => setIsProfileMenuOpen(false)}
+                    className="profile-dropdown-item"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '8px 16px',
+                      color: 'var(--text)',
+                      font: '700 13px Urbanist',
+                      textDecoration: 'none',
+                      cursor: 'pointer',
+                      minHeight: '44px',
+                      boxSizing: 'border-box'
+                    }}
+                  >
+                    <IconCalendar size={16} />
+                    <span>Calendar</span>
+                  </Link>
+
+                  <Link
+                    to="/resources"
+                    onClick={() => setIsProfileMenuOpen(false)}
+                    className="profile-dropdown-item"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '8px 16px',
+                      color: 'var(--text)',
+                      font: '700 13px Urbanist',
+                      textDecoration: 'none',
+                      cursor: 'pointer',
+                      minHeight: '44px',
+                      boxSizing: 'border-box'
+                    }}
+                  >
+                    <IconFolderOpen size={16} />
+                    <span>Resources</span>
+                  </Link>
+
+                  <Link
+                    to="/settings"
                     onClick={() => setIsProfileMenuOpen(false)}
                     style={{
                       display: 'flex',
