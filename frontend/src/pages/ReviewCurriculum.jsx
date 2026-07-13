@@ -125,6 +125,7 @@ export default function ReviewCurriculum() {
   const [curriculum, setCurriculum] = useState(null); // live editable copy
   const [errors, setErrors] = useState([]);
   const [confirming, setConfirming] = useState(false);
+  const [discarding, setDiscarding] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [confirmError, setConfirmError] = useState('');
   const [expandedTracks, setExpandedTracks] = useState({});
@@ -197,11 +198,14 @@ export default function ReviewCurriculum() {
 
   const handleDiscard = async () => {
     if (!window.confirm('Discard this import? This cannot be undone.')) return;
+    if (discarding) return;
+    setDiscarding(true);
     try {
       await api.delete(`/curriculum-imports/${importId}`);
       navigate('/import-curriculum');
     } catch (e) {
       console.error(e);
+      setDiscarding(false);
     }
   };
 
@@ -305,11 +309,12 @@ export default function ReviewCurriculum() {
         <div style={{ display: 'flex', gap: '10px', flexShrink: 0 }}>
           <button
             className="ghostpill"
-            style={{ fontSize: '13px', cursor: 'pointer', color: '#EF4444', borderColor: 'rgba(239,68,68,0.3)' }}
+            style={{ fontSize: '13px', cursor: discarding ? 'not-allowed' : 'pointer', color: '#EF4444', borderColor: 'rgba(239,68,68,0.3)', opacity: discarding ? 0.6 : 1 }}
             onClick={handleDiscard}
+            disabled={discarding}
           >
             <IconTrash size={13} style={{ marginRight: '5px' }} />
-            Discard
+            {discarding ? 'Discarding…' : 'Discard'}
           </button>
           <button
             id="curriculum-confirm-btn"
@@ -578,7 +583,7 @@ export default function ReviewCurriculum() {
               </div>
               <h3 style={{ font: '900 18px Urbanist', color: 'var(--text)', margin: 0 }}>Existing Tracks Detected</h3>
             </div>
-
+            
             <p style={{ font: '600 13.5px/1.6 Urbanist', color: 'var(--text-muted)', margin: 0 }}>
               You already have active tracks in your account. Would you like to overwrite your existing study tracks or append the new imported tracks?
             </p>
