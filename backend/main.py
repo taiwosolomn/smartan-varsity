@@ -490,16 +490,61 @@ def update_profile(profile_in: UserProfileUpdate, current_user: User = Depends(g
     return current_user
 
 
+def upload_to_supabase_storage(bucket: str, path: str, content: bytes, content_type: str) -> str:
+    """Upload raw bytes to a Supabase Storage bucket via the Storage REST API
+    (same raw-urllib pattern used elsewhere in this file for Supabase Admin API
+    calls — no supabase-py/boto3 dependency needed). Returns the public URL.
+    Storage on Railway's local disk doesn't survive a redeploy (ephemeral
+    filesystem), which is why this exists instead of writing to STATIC_DIR."""
+    import urllib.request
+    supabase_url = os.getenv("SUPABASE_URL", "")
+    service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+    if not supabase_url or not service_key:
+        raise HTTPException(status_code=500, detail="Storage not configured (missing SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY)")
+
+    url = f"{supabase_url}/storage/v1/object/{bucket}/{path}"
+    headers = {
+        "apikey": service_key,
+        "Authorization": f"Bearer {service_key}",
+        "Content-Type": content_type,
+        "x-upsert": "true",
+    }
+    req = urllib.request.Request(url, data=content, headers=headers, method="POST")
+    with urllib.request.urlopen(req) as res:
+        if res.status not in (200, 201):
+            raise HTTPException(status_code=502, detail="Failed to upload to storage")
+    return f"{supabase_url}/storage/v1/object/public/{bucket}/{path}"
+
+
+def delete_from_supabase_storage(bucket: str, path: str):
+    """Best-effort delete of a Supabase Storage object — never raises, so a
+    delete failure can't block the user-facing avatar-removal action."""
+    import urllib.request
+    supabase_url = os.getenv("SUPABASE_URL", "")
+    service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+    if not supabase_url or not service_key:
+        return
+    try:
+        url = f"{supabase_url}/storage/v1/object/{bucket}/{path}"
+        headers = {
+            "apikey": service_key,
+            "Authorization": f"Bearer {service_key}",
+        }
+        req = urllib.request.Request(url, headers=headers, method="DELETE")
+        with urllib.request.urlopen(req):
+            pass
+    except Exception as e:
+        print(f"[Storage] Failed to delete {bucket}/{path} (non-fatal): {e}")
+
+
 @router_auth.post("/avatar")
 def upload_avatar(file: UploadFile = File(...), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    if not file.content_type.startswith("image/"):
+    if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="File must be an image")
     file_ext = os.path.splitext(file.filename)[1]
     file_name = f"{current_user.id}_{int(datetime.datetime.utcnow().timestamp())}{file_ext}"
-    file_path = os.path.join(STATIC_DIR, "avatars", file_name)
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-    avatar_url = f"/static/avatars/{file_name}"
+    contents = file.file.read()
+    avatar_url = upload_to_supabase_storage("avatars", file_name, contents, file.content_type)
     current_user.avatarUrl = avatar_url
     db.add(current_user)
     db.commit()
@@ -509,6 +554,9 @@ def upload_avatar(file: UploadFile = File(...), current_user: User = Depends(get
 
 @router_auth.delete("/avatar")
 def remove_avatar(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if current_user.avatarUrl and "/storage/v1/object/public/avatars/" in current_user.avatarUrl:
+        object_path = current_user.avatarUrl.split("/storage/v1/object/public/avatars/", 1)[1]
+        delete_from_supabase_storage("avatars", object_path)
     current_user.avatarUrl = None
     db.add(current_user)
     db.commit()
