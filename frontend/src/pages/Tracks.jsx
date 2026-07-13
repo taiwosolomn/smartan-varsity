@@ -132,6 +132,7 @@ export default function Tracks() {
   
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCreatingTrack, setIsCreatingTrack] = useState(false);
   const [newTrackName, setNewTrackName] = useState('');
   // iconState: { type: 'emoji'|'image'|'library', value: string, imageUrl?: string, thumbUrl?: string }
   const [newIconState, setNewIconState] = useState({ type: 'emoji', value: '🧠', imageUrl: null, thumbUrl: null });
@@ -272,24 +273,24 @@ export default function Tracks() {
     
     // Clean name: case-insensitive & whitespace trimmed
     const cleanName = name.trim().toLowerCase().replace(/\s+/g, ' ');
-    const otherTracks = tracks.filter(t => t.id !== excludeId);
+    const otherTracks = (tracks || []).filter(Boolean).filter(t => t.id !== excludeId);
     
     // 2. Name already exists
-    const nameExists = otherTracks.some(t => t.name.trim().toLowerCase().replace(/\s+/g, ' ') === cleanName);
+    const nameExists = otherTracks.some(t => t.name && (t.name.trim().toLowerCase().replace(/\s+/g, ' ') === cleanName));
     if (nameExists) {
       errs.name = `You already have a track called '${name.trim()}'. Choose a different name.`;
       return errs;
     }
 
     // 5. Colour AND emoji match (highest precedence check for combined collision)
-    const combinedMatch = otherTracks.find(t => (t.color.toLowerCase() === color.toLowerCase() || isSimilarColor(color, t.color)) && t.icon === emoji);
+    const combinedMatch = otherTracks.find(t => t.color && (t.color.toLowerCase() === color.toLowerCase() || isSimilarColor(color, t.color)) && t.icon === emoji);
     if (combinedMatch) {
       errs.combined = `This combination is identical to ${combinedMatch.name}. Change at least one.`;
       return errs;
     }
 
     // 3. Colour too similar
-    const colorMatch = otherTracks.find(t => t.color.toLowerCase() === color.toLowerCase() || isSimilarColor(color, t.color));
+    const colorMatch = otherTracks.find(t => t.color && (t.color.toLowerCase() === color.toLowerCase() || isSimilarColor(color, t.color)));
     if (colorMatch) {
       errs.color = `Colour is too close to your ${colorMatch.name} track (${colorMatch.color}).`;
       return errs;
@@ -309,6 +310,7 @@ export default function Tracks() {
 
   const handleCreateTrack = async (e) => {
     e.preventDefault();
+    if (isCreatingTrack) return;
     const iconDisplayVal = newIconState.value || '🧠';
     const err = validateFields(newTrackName, newTrackColor, iconDisplayVal);
     setValErrors(err);
@@ -319,6 +321,7 @@ export default function Tracks() {
       return;
     }
 
+    setIsCreatingTrack(true);
     try {
       await api.post('/tracks', {
         name:          newTrackName.trim(),
@@ -365,6 +368,8 @@ export default function Tracks() {
       } else {
         console.error(err);
       }
+    } finally {
+      setIsCreatingTrack(false);
     }
   };
 
@@ -931,7 +936,7 @@ export default function Tracks() {
                 <TrackIconPicker
                   value={newIconState}
                   onChange={setNewIconState}
-                  usedIcons={tracks.map(t => ({ type: t.icon_type || 'emoji', value: t.icon_value || t.icon }))}
+                  usedIcons={(tracks || []).filter(Boolean).map(t => ({ type: t.icon_type || 'emoji', value: t.icon_value || t.icon }))}
                   trackColor={newTrackColor}
                 />
                 {valErrors.icon && (
@@ -946,7 +951,7 @@ export default function Tracks() {
                 <label className="flabel">Choose Colour</label>
                 <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
                   {['#C25A3A', '#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#f43f5e', '#14b8a6', '#06b6d4'].map(color => {
-                    const isPresetInUse = tracks.some(t => t.color.toLowerCase() === color.toLowerCase() || isSimilarColor(color, t.color));
+                    const isPresetInUse = (tracks || []).filter(Boolean).some(t => t.color && (t.color.toLowerCase() === color.toLowerCase() || isSimilarColor(color, t.color)));
                     return (
                       <button
                         key={color}
@@ -1017,7 +1022,7 @@ export default function Tracks() {
                   <div style={{ color: '#FF5E5E', fontSize: '12px', fontWeight: 600, marginTop: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     {(() => {
                       // Find which track conflicts to output conflicting name and small color swatch preview!
-                      const conflictingTrack = tracks.find(t => t.color.toLowerCase() === newTrackColor.toLowerCase() || isSimilarColor(newTrackColor, t.color));
+                      const conflictingTrack = (tracks || []).filter(Boolean).find(t => t.color && (t.color.toLowerCase() === newTrackColor.toLowerCase() || isSimilarColor(newTrackColor, t.color)));
                       if (conflictingTrack) {
                         return (
                           <>
@@ -1059,14 +1064,14 @@ export default function Tracks() {
 
               {/* ACTION BUTTONS */}
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '10px' }}>
-                <button type="button" className="ghostpill" onClick={() => {
+                <button type="button" className="ghostpill" disabled={isCreatingTrack} onClick={() => {
                   setValErrors({ name: '', color: '', emoji: '', combined: '' });
                   setIsModalOpen(false);
                 }}>
                   Cancel
                 </button>
-                <button type="submit" className="pillbtn">
-                  Create track
+                <button type="submit" className="pillbtn" disabled={isCreatingTrack} style={{ opacity: isCreatingTrack ? 0.6 : 1, cursor: isCreatingTrack ? 'not-allowed' : 'pointer' }}>
+                  {isCreatingTrack ? 'Creating…' : 'Create track'}
                 </button>
               </div>
             </form>
