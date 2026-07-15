@@ -89,6 +89,7 @@ class SettingsResponse(BaseModel):
 class ModuleCreate(BaseModel):
     title: str
     type: str = "reading"  # reading, video, drill, project, assessment, note, custom
+    description: Optional[str] = None
 
 class ModuleUpdate(BaseModel):
     title: Optional[str] = None
@@ -96,6 +97,7 @@ class ModuleUpdate(BaseModel):
     status: Optional[str] = None  # todo, inprogress, done
     order: Optional[int] = None
     notes: Optional[str] = None
+    description: Optional[str] = None
 
 class ModuleResponse(BaseModel):
     id: str

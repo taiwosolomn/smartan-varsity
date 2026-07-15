@@ -1317,6 +1317,7 @@ def create_module(course_id: str, module_in: ModuleCreate, current_user: User = 
         courseId=course_id,
         title=module_in.title,
         type=module_in.type,
+        description=module_in.description,
         status="todo",
         order=max_order + 1
     )
@@ -1349,7 +1350,9 @@ def update_module(module_id: str, module_in: ModuleUpdate, current_user: User = 
         module.order = module_in.order
     if module_in.notes is not None:
         module.notes = module_in.notes
-        
+    if module_in.description is not None:
+        module.description = module_in.description
+
     if module_in.status is not None:
         old_status = module.status
         module.status = module_in.status

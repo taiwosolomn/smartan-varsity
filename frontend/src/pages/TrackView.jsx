@@ -57,7 +57,16 @@ export default function TrackView() {
   const [selectedCourseId, setSelectedCourseId] = useState('');
   const [newModuleTitle, setNewModuleTitle] = useState('');
   const [newModuleType, setNewModuleType] = useState('reading');
+  const [newModuleDescription, setNewModuleDescription] = useState('');
   const [isSavingModule, setIsSavingModule] = useState(false);
+
+  // Edit Module State
+  const [isEditModuleOpen, setIsEditModuleOpen] = useState(false);
+  const [editModuleId, setEditModuleId] = useState('');
+  const [editModuleTitle, setEditModuleTitle] = useState('');
+  const [editModuleType, setEditModuleType] = useState('reading');
+  const [editModuleDescription, setEditModuleDescription] = useState('');
+  const [isSavingEditModule, setIsSavingEditModule] = useState(false);
 
   // Edit Track State
   const [isEditTrackOpen, setIsEditTrackOpen] = useState(false);
@@ -506,19 +515,49 @@ export default function TrackView() {
     try {
       await api.post(`/modules/course/${selectedCourseId}`, {
         title: newModuleTitle,
-        type: newModuleType
+        type: newModuleType,
+        description: newModuleDescription.trim() || null
       });
       window.dispatchEvent(new CustomEvent('show-success', {
         detail: { type: 'module_added' }
       }));
       setNewModuleTitle('');
       setNewModuleType('reading');
+      setNewModuleDescription('');
       setIsModuleModalOpen(false);
       await fetchTrackDetails();
     } catch (err) {
       console.error(err);
     } finally {
       setIsSavingModule(false);
+    }
+  };
+
+  const openEditModule = (module) => {
+    setEditModuleId(module.id);
+    setEditModuleTitle(module.title);
+    setEditModuleType(module.type || 'reading');
+    setEditModuleDescription(module.description || '');
+    setIsEditModuleOpen(true);
+  };
+
+  const handleEditModule = async (e) => {
+    e.preventDefault();
+    if (!editModuleTitle.trim() || isSavingEditModule) return;
+
+    setIsSavingEditModule(true);
+    try {
+      await api.put(`/modules/${editModuleId}`, {
+        title: editModuleTitle.trim(),
+        type: editModuleType,
+        description: editModuleDescription.trim() || null
+      });
+      setIsEditModuleOpen(false);
+      await fetchTrackDetails();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSavingEditModule(false);
     }
   };
 
@@ -866,8 +905,17 @@ export default function TrackView() {
                                 <IconRefresh size={14} />
                               </button>
                               
-                              <button 
-                                className="iconbtn" 
+                              <button
+                                className="iconbtn"
+                                style={{ width: '32px', height: '32px', fontSize: '14px' }}
+                                onClick={() => openEditModule(m)}
+                                title="Edit module"
+                              >
+                                <IconPencil size={14} />
+                              </button>
+
+                              <button
+                                className="iconbtn"
                                 style={{ width: '32px', height: '32px', fontSize: '14px', color: 'red' }}
                                 onClick={() => openDeleteModule(m.id, m.title)}
                                 title="Delete module"
@@ -1118,13 +1166,86 @@ export default function TrackView() {
                   <option value="note">Note</option>
                 </select>
               </div>
-              
+
+              <div>
+                <label className="flabel">Description (optional)</label>
+                <textarea
+                  className="field"
+                  placeholder="What does this module cover?"
+                  value={newModuleDescription}
+                  onChange={e => setNewModuleDescription(e.target.value)}
+                  rows={4}
+                  style={{ resize: 'vertical', minHeight: '90px' }}
+                />
+              </div>
+
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
                 <button type="button" className="ghostpill" onClick={() => setIsModuleModalOpen(false)} disabled={isSavingModule}>
                   Cancel
                 </button>
                 <button type="submit" className="pillbtn" disabled={isSavingModule} style={{ opacity: isSavingModule ? 0.6 : 1, cursor: isSavingModule ? 'not-allowed' : 'pointer' }}>
                   {isSavingModule ? 'Adding…' : 'Add module'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT MODULE MODAL */}
+      {isEditModuleOpen && (
+        <div className="scrim" onClick={() => setIsEditModuleOpen(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <span className="modal-title">Edit Module</span>
+              <span className="modal-close" onClick={() => setIsEditModuleOpen(false)}>×</span>
+            </div>
+
+            <form onSubmit={handleEditModule} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div>
+                <label className="flabel">Module Title</label>
+                <input
+                  className="field"
+                  value={editModuleTitle}
+                  onChange={e => setEditModuleTitle(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="flabel">Type</label>
+                <select
+                  className="field"
+                  value={editModuleType}
+                  onChange={e => setEditModuleType(e.target.value)}
+                >
+                  <option value="reading">Reading</option>
+                  <option value="video">Video</option>
+                  <option value="drill">Drill</option>
+                  <option value="project">Project</option>
+                  <option value="assessment">Assessment</option>
+                  <option value="note">Note</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="flabel">Description (optional)</label>
+                <textarea
+                  className="field"
+                  placeholder="What does this module cover?"
+                  value={editModuleDescription}
+                  onChange={e => setEditModuleDescription(e.target.value)}
+                  rows={4}
+                  style={{ resize: 'vertical', minHeight: '90px' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                <button type="button" className="ghostpill" onClick={() => setIsEditModuleOpen(false)} disabled={isSavingEditModule}>
+                  Cancel
+                </button>
+                <button type="submit" className="pillbtn" disabled={isSavingEditModule} style={{ opacity: isSavingEditModule ? 0.6 : 1, cursor: isSavingEditModule ? 'not-allowed' : 'pointer' }}>
+                  {isSavingEditModule ? 'Saving…' : 'Save changes'}
                 </button>
               </div>
             </form>
