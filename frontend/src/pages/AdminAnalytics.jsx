@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
+import Analytics from './Analytics.jsx';
 import { IconSearch, IconLoader, IconX, IconAlertCircle, IconChevronDown, IconChevronRight, IconTrendingUp, IconAward, IconActivity, IconClock } from '@tabler/icons-react';
 
 export default function AdminAnalytics() {
@@ -66,10 +67,7 @@ export default function AdminAnalytics() {
         days: activeDays,
         track_category: 'All'
       };
-      if (selectedSmartanId) {
-        params.smartan_id = selectedSmartanId;
-      }
-      
+
       const res = await api.get('/admin/analytics', { params, timeout: 10000 });
       setAnalytics(res.data);
       setLoading(false);
@@ -88,7 +86,11 @@ export default function AdminAnalytics() {
     }
   };
 
+  // A selected Smartan is rendered via the real <Analytics smartanId .../> component
+  // (an exact clone of their own page) instead of this community-wide summary — no
+  // need to hit /admin/analytics in that case.
   useEffect(() => {
+    if (selectedSmartanId) return;
     fetchAnalytics();
   }, [selectedSmartanId, activeDays]);
 
@@ -107,56 +109,33 @@ export default function AdminAnalytics() {
     setLoading(true);
   };
 
-  // Heuristic mock community milestones
-  const communityMilestones = [
-    { text: 'Community crossed 10,000 hours logged', date: '2 Jul' },
-    { text: '42 Smartans hit 30+ day streaks', date: '28 Jun' },
-    { text: 'Cybersecurity track passed 3,000 hours', date: '19 Jun' }
-  ];
-
-  const individualMilestones = [
-    { text: 'Phase I complete — Networking fundamentals', date: '14 May' },
-    { text: '100 hours logged threshold', date: '2 Jun' },
-    { text: 'First CVE writeup published', date: '19 Jun' }
-  ];
-
-  const getDayHours = (dayIndex, totalHours) => {
-    const weights = [0.15, 0.22, 0.18, 0.12, 0.08, 0.15, 0.10];
-    return roundTo1((totalHours || 240) * weights[dayIndex]);
+  // Real day-of-week hours, aggregated from analytics.logs (same approach as the
+  // Smartan-facing Analytics page's getDayOfWeekStats) — no fabricated weights.
+  const getDayOfWeekHours = () => {
+    const minsPerDay = Array(7).fill(0);
+    (analytics?.logs || []).forEach(log => {
+      if (!log.date) return;
+      const d = new Date(log.date + 'T12:00:00');
+      let dayIdx = d.getDay() - 1;
+      if (dayIdx === -1) dayIdx = 6;
+      minsPerDay[dayIdx] += log.duration || 0;
+    });
+    return minsPerDay.map(mins => roundTo1(mins / 60));
   };
 
+  // Real hour-of-day distribution from each log's actual session start time —
+  // matches the Smartan-facing Analytics page's getTimeOfDayStats. No fallback
+  // to fabricated data: with no real startTime data, every hour is legitimately 0.
   const getHourlyDistribution = () => {
-    const rawLogs = analytics?.logs || [];
     const hoursData = Array(24).fill(0);
-    let totalLoggedHours = 0;
-    
-    rawLogs.forEach(log => {
-      if (log.createdAt) {
-        try {
-          const dateObj = new Date(log.createdAt);
-          const hour = dateObj.getHours();
-          if (hour >= 0 && hour < 24) {
-            hoursData[hour] += log.duration / 60.0;
-            totalLoggedHours += log.duration / 60.0;
-          }
-        } catch (e) {
-          console.error(e);
-        }
+    (analytics?.logs || []).forEach(log => {
+      if (!log.startTime) return;
+      const hour = parseInt(log.startTime.split(':')[0], 10);
+      if (!isNaN(hour) && hour >= 0 && hour < 24) {
+        hoursData[hour] += (log.duration || 0) / 60.0;
       }
     });
-
-    if (totalLoggedHours === 0) {
-      const total = analytics?.summary?.totalHours || 240;
-      const weights = [
-        0.005, 0.002, 0.001, 0.001, 0.005, 0.01,
-        0.02,  0.05,  0.08,  0.06,  0.05,  0.04,
-        0.05,  0.08,  0.09,  0.07,  0.05,  0.04,
-        0.06,  0.09,  0.11,  0.08,  0.04,  0.017
-      ];
-      return weights.map(w => Math.round(total * w * 10) / 10);
-    }
-    
-    return hoursData.map(h => Math.round(h * 10) / 10);
+    return hoursData.map(h => roundTo1(h));
   };
 
   const formatHourLabel = (h) => {
@@ -360,7 +339,7 @@ export default function AdminAnalytics() {
                       >
                         Whole Varsity (Community)
                       </div>
-                      {smartans.map(s => (
+                      {filteredSmartansDropdown.map(s => (
                         <div
                           key={s.id}
                           onClick={() => handleSelectSmartan(s.id, s.fullName)}
@@ -448,7 +427,10 @@ export default function AdminAnalytics() {
 
       </div>
 
-      {loading ? (
+      {selectedSmartanId ? (
+        // Exact clone of the Smartan's own Analytics page, scoped to their data via smartan_id.
+        <Analytics key={selectedSmartanId} smartanId={selectedSmartanId} smartanName={selectedSmartanName} />
+      ) : loading ? (
         <>
           {renderStatsSkeleton()}
           {renderChartsSkeleton()}
@@ -510,27 +492,21 @@ export default function AdminAnalytics() {
               <p style={{ font: '600 12.5px Urbanist', color: 'var(--text-muted)', margin: 0 }}>Smartans grouped by total hours logged</p>
               
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '8px' }}>
-                {selectedSmartanId ? (
-                  <div style={{ font: '700 13px Urbanist', color: 'var(--text-muted)', padding: '24px', textAlign: 'center', background: 'var(--input-bg)', borderRadius: '12px', border: '1px dashed var(--input-border)' }}>
-                    Distribution graph is only available for community-wide analytics views.
-                  </div>
-                ) : (
-                  Object.entries(analytics?.masteryData || {}).map(([range, count]) => {
-                    const totalCount = Object.values(analytics.masteryData).reduce((a, b) => a + b, 0) || 1;
-                    const pct = Math.round((count / totalCount) * 100);
-                    return (
-                      <div key={range} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', font: '800 12.5px Urbanist', color: 'var(--text)' }}>
-                          <span>{range}</span>
-                          <span>{count} Smartans</span>
-                        </div>
-                        <div style={{ width: '100%', height: '10px', background: 'var(--input-bg)', border: '1px solid var(--input-border)', borderRadius: '99px', overflow: 'hidden' }}>
-                          <div style={{ width: `${pct}%`, height: '100%', background: 'var(--tab-active-border, #C25A3A)' }} />
-                        </div>
+                {Object.entries(analytics?.masteryData || {}).map(([range, count]) => {
+                  const totalCount = Object.values(analytics.masteryData).reduce((a, b) => a + b, 0) || 1;
+                  const pct = Math.round((count / totalCount) * 100);
+                  return (
+                    <div key={range} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', font: '800 12.5px Urbanist', color: 'var(--text)' }}>
+                        <span>{range}</span>
+                        <span>{count} Smartans</span>
                       </div>
-                    );
-                  })
-                )}
+                      <div style={{ width: '100%', height: '10px', background: 'var(--input-bg)', border: '1px solid var(--input-border)', borderRadius: '99px', overflow: 'hidden' }}>
+                        <div style={{ width: `${pct}%`, height: '100%', background: 'var(--tab-active-border, #C25A3A)' }} />
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -593,17 +569,26 @@ export default function AdminAnalytics() {
 
             {/* Milestones */}
             <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '20px', padding: '28px' }}>
-              <h3 style={{ font: '900 16px Urbanist', color: 'var(--text)', margin: 0 }}>Milestones</h3>
+              <h3 style={{ font: '900 16px Urbanist', color: 'var(--text)', margin: 0 }}>Recent milestones</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {(selectedSmartanId ? individualMilestones : communityMilestones).map((m, idx) => (
-                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: 'var(--input-bg)', border: '1px solid var(--input-border)', borderRadius: '12px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <span style={{ fontSize: '16px' }}>🏆</span>
-                      <span style={{ font: '700 13px Urbanist', color: 'var(--text)' }}>{m.text}</span>
+                {(analytics?.recentMilestones || []).length === 0 ? (
+                  <div style={{ font: '700 13px Urbanist', color: 'var(--text-muted)', padding: '24px', textAlign: 'center' }}>No milestones recorded in this period.</div>
+                ) : (
+                  analytics.recentMilestones.map((m) => (
+                    <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: 'var(--input-bg)', border: '1px solid var(--input-border)', borderRadius: '12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                        <span style={{ fontSize: '16px', flexShrink: 0 }}>🏆</span>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ font: '700 13px Urbanist', color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.text}</div>
+                          <div style={{ font: '600 11px Urbanist', color: 'var(--text-muted)', marginTop: '2px' }}>{m.smartanName}</div>
+                        </div>
+                      </div>
+                      <span style={{ font: '600 11px Urbanist', color: 'var(--text-muted)', flexShrink: 0 }}>
+                        {new Date(m.date).toLocaleDateString([], { day: 'numeric', month: 'short' })}
+                      </span>
                     </div>
-                    <span style={{ font: '600 11px Urbanist', color: 'var(--text-muted)' }}>{m.date}</span>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
 
@@ -651,12 +636,14 @@ export default function AdminAnalytics() {
             </div>
 
             <div style={{ marginTop: '10px' }}>
-              {timeMetric === 'day' ? (
+              {timeMetric === 'day' ? (() => {
+                const dayOfWeekHours = getDayOfWeekHours();
+                const maxDayHours = Math.max(...dayOfWeekHours, 1);
+                return (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, idx) => {
-                    const dayHours = getDayHours(idx, analytics?.summary?.totalHours);
-                    const maxHours = (analytics?.summary?.totalHours || 240) * 0.25 || 1;
-                    const pct = Math.round((dayHours / maxHours) * 100);
+                    const dayHours = dayOfWeekHours[idx];
+                    const pct = Math.round((dayHours / maxDayHours) * 100);
 
                     return (
                       <div key={day} style={{ display: 'grid', gridTemplateColumns: '60px 1fr 60px', alignItems: 'center', gap: '12px' }}>
@@ -669,7 +656,8 @@ export default function AdminAnalytics() {
                     );
                   })}
                 </div>
-              ) : (() => {
+                );
+              })() : (() => {
                 const hourlyData = getHourlyDistribution();
                 const maxHourlyVal = Math.max(...hourlyData) || 1;
                 const leftColHours = Array.from({ length: 12 }, (_, i) => i);

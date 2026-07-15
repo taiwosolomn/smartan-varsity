@@ -1003,8 +1003,9 @@ def upload_track_icon(file: UploadFile = File(...), current_user: User = Depends
         raise HTTPException(status_code=500, detail=f"Failed to process image: {str(e)}")
 
 @router_tracks.get("", response_model=List[TrackResponse])
-def get_tracks(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    return db.query(Track).filter(Track.userId == current_user.id).order_by(Track.order).all()
+def get_tracks(current_user: User = Depends(get_current_user), db: Session = Depends(get_db), smartan_id: Optional[str] = None):
+    scoped_user_id = resolve_scoped_user_id(smartan_id, current_user, db)
+    return db.query(Track).filter(Track.userId == scoped_user_id).order_by(Track.order).all()
 
 @router_tracks.get("/detailed", response_model=List[TrackDetailResponse])
 def get_detailed_tracks(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -1392,11 +1393,13 @@ def get_logs(
     from_date: Optional[str] = Query(None, alias="from"),
     to_date: Optional[str] = Query(None, alias="to"),
     month: Optional[str] = None,
+    smartan_id: Optional[str] = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     from fastapi.encoders import jsonable_encoder
-    query = db.query(SessionLog).filter(SessionLog.userId == current_user.id)
+    scoped_user_id = resolve_scoped_user_id(smartan_id, current_user, db)
+    query = db.query(SessionLog).filter(SessionLog.userId == scoped_user_id)
     if trackId and trackId != "all":
         query = query.filter(SessionLog.trackId == trackId)
     if month:
@@ -1612,8 +1615,9 @@ def delete_log(log_id: str, current_user: User = Depends(get_current_user), db: 
 router_milestones = APIRouter(prefix="/milestones", tags=["Milestones"])
 
 @router_milestones.get("", response_model=List[MilestoneResponse])
-def get_milestones(current_user: User = Depends(get_current_user), db: Session = Depends(get_db), trackId: Optional[str] = None):
-    query = db.query(Milestone).filter(Milestone.userId == current_user.id)
+def get_milestones(current_user: User = Depends(get_current_user), db: Session = Depends(get_db), trackId: Optional[str] = None, smartan_id: Optional[str] = None):
+    scoped_user_id = resolve_scoped_user_id(smartan_id, current_user, db)
+    query = db.query(Milestone).filter(Milestone.userId == scoped_user_id)
     if trackId and trackId != 'all':
         query = query.filter(Milestone.trackId == trackId)
     return query.order_by(Milestone.date.desc()).all()
@@ -1889,6 +1893,17 @@ def delete_resource(res_id: str, current_user: User = Depends(get_current_user),
 # --- ANALYTICS ROUTER ---
 router_analytics = APIRouter(prefix="/analytics", tags=["Analytics"])
 
+def resolve_scoped_user_id(smartan_id: Optional[str], current_user: User, db: Session) -> str:
+    """Admins may pass ?smartan_id=... to view a specific Smartan's own analytics/logs/
+    milestones/tracks data (same endpoints the Smartan's own Analytics page calls) —
+    non-admins always get their own id regardless of the param."""
+    if smartan_id and current_user.role == "admin":
+        target = db.query(User).filter(User.id == smartan_id, User.role == "smartan").first()
+        if not target:
+            raise HTTPException(status_code=404, detail="Smartan not found")
+        return target.id
+    return current_user.id
+
 def get_filtered_logs_query(
     db: Session,
     user_id: int,
@@ -1911,9 +1926,11 @@ def get_analytics_summary(
     db: Session = Depends(get_db),
     trackId: Optional[str] = None,
     from_date: Optional[str] = Query(None, alias="from"),
-    to_date: Optional[str] = Query(None, alias="to")
+    to_date: Optional[str] = Query(None, alias="to"),
+    smartan_id: Optional[str] = None
 ):
-    logs = get_filtered_logs_query(db, current_user.id, trackId, from_date, to_date).all()
+    scoped_user_id = resolve_scoped_user_id(smartan_id, current_user, db)
+    logs = get_filtered_logs_query(db, scoped_user_id, trackId, from_date, to_date).all()
     
     # 1. Total hours
     total_mins = sum(l.duration for l in logs)
@@ -1979,11 +1996,13 @@ def get_analytics_by_track(
     db: Session = Depends(get_db),
     trackId: Optional[str] = None,
     from_date: Optional[str] = Query(None, alias="from"),
-    to_date: Optional[str] = Query(None, alias="to")
+    to_date: Optional[str] = Query(None, alias="to"),
+    smartan_id: Optional[str] = None
 ):
-    logs = get_filtered_logs_query(db, current_user.id, trackId, from_date, to_date).all()
-    
-    tracks_query = db.query(Track).filter(Track.userId == current_user.id)
+    scoped_user_id = resolve_scoped_user_id(smartan_id, current_user, db)
+    logs = get_filtered_logs_query(db, scoped_user_id, trackId, from_date, to_date).all()
+
+    tracks_query = db.query(Track).filter(Track.userId == scoped_user_id)
     if trackId and trackId != 'all':
         tracks_query = tracks_query.filter(Track.id == trackId)
     tracks = tracks_query.all()
@@ -2014,9 +2033,11 @@ def get_heatmap(
     db: Session = Depends(get_db),
     trackId: Optional[str] = None,
     from_date: Optional[str] = Query(None, alias="from"),
-    to_date: Optional[str] = Query(None, alias="to")
+    to_date: Optional[str] = Query(None, alias="to"),
+    smartan_id: Optional[str] = None
 ):
-    logs = get_filtered_logs_query(db, current_user.id, trackId, from_date, to_date).all()
+    scoped_user_id = resolve_scoped_user_id(smartan_id, current_user, db)
+    logs = get_filtered_logs_query(db, scoped_user_id, trackId, from_date, to_date).all()
     daily_durations = {}
     daily_counts = {}
     for l in logs:
@@ -2068,15 +2089,17 @@ def get_mastery_trend(
     db: Session = Depends(get_db),
     trackId: Optional[str] = None,
     from_date: Optional[str] = Query(None, alias="from"),
-    to_date: Optional[str] = Query(None, alias="to")
+    to_date: Optional[str] = Query(None, alias="to"),
+    smartan_id: Optional[str] = None
 ):
-    query = get_filtered_logs_query(db, current_user.id, trackId, from_date, to_date)
+    scoped_user_id = resolve_scoped_user_id(smartan_id, current_user, db)
+    query = get_filtered_logs_query(db, scoped_user_id, trackId, from_date, to_date)
     logs = query.filter(SessionLog.rating != None).order_by(SessionLog.date.asc()).all()
 
     # Pre-fetch all tracks once into a dict — avoids 1 DB query per log (N+1)
     tracks_map = {
         t.id: t
-        for t in db.query(Track).filter(Track.userId == current_user.id).all()
+        for t in db.query(Track).filter(Track.userId == scoped_user_id).all()
     }
 
     result = []
@@ -2098,9 +2121,11 @@ def get_streak_details(
     db: Session = Depends(get_db),
     trackId: Optional[str] = None,
     from_date: Optional[str] = Query(None, alias="from"),
-    to_date: Optional[str] = Query(None, alias="to")
+    to_date: Optional[str] = Query(None, alias="to"),
+    smartan_id: Optional[str] = None
 ):
-    logs = get_filtered_logs_query(db, current_user.id, trackId, from_date, to_date).all()
+    scoped_user_id = resolve_scoped_user_id(smartan_id, current_user, db)
+    logs = get_filtered_logs_query(db, scoped_user_id, trackId, from_date, to_date).all()
     
     this_month_prefix = datetime.date.today().isoformat()[:7]
     month_logs = [l for l in logs if l.date.startswith(this_month_prefix)]
@@ -3478,7 +3503,7 @@ def get_admin_analytics(
     current_admin: User = Depends(get_current_admin), 
     db: Session = Depends(get_db)
 ):
-    from models import User, SessionLog, Track, Module
+    from models import User, SessionLog, Track, Module, Milestone
     import datetime
 
     since_date = None
@@ -3673,12 +3698,20 @@ def get_admin_analytics(
 
     total_smartans = db.query(User).filter(User.role == "smartan").count()
 
+    # Batch-load every track and owner referenced by these logs up front — avoids
+    # 2 DB round trips per log (previously O(n) sequential queries, which alone could
+    # take several seconds under Supabase's network latency for even a few dozen logs).
+    referenced_track_ids = {l.trackId for l in logs}
+    tracks_by_id = {t.id: t for t in db.query(Track).filter(Track.id.in_(referenced_track_ids)).all()}
+    owner_ids = {t.userId for t in tracks_by_id.values()}
+    owners_by_id = {u.id: u for u in db.query(User).filter(User.id.in_(owner_ids)).all()}
+
     track_durations = {}
     track_counts = {}
     track_names = {}
     track_owners = {}
     for l in logs:
-        t = db.query(Track).filter(Track.id == l.trackId).first()
+        t = tracks_by_id.get(l.trackId)
         if not t:
             continue
         tname = t.name.strip()
@@ -3686,7 +3719,7 @@ def get_admin_analytics(
         track_durations[tkey] = track_durations.get(tkey, 0) + l.duration
         track_counts[tkey] = track_counts.get(tkey, 0) + 1
         track_names[tkey] = tname
-        owner = db.query(User).filter(User.id == t.userId).first()
+        owner = owners_by_id.get(t.userId)
         track_owners[tkey] = owner.fullName if owner else "Unknown"
 
     by_track = []
@@ -3734,6 +3767,24 @@ def get_admin_analytics(
         else:
             dist["50h+"] += 1
 
+    # Real recent milestones across the whole cohort (replaces a previous hardcoded
+    # placeholder list) — scoped by the same date range as everything else on this page.
+    milestone_query = db.query(Milestone).join(User, Milestone.userId == User.id).filter(User.role == "smartan")
+    if since_date:
+        milestone_query = milestone_query.filter(Milestone.date >= since_date.isoformat())
+    if track_category != "All":
+        milestone_query = milestone_query.filter(Milestone.trackId.in_(list(filtered_track_ids)))
+    recent_milestones_rows = milestone_query.order_by(Milestone.date.desc(), Milestone.createdAt.desc()).limit(5).all()
+    recent_milestones = [
+        {
+            "id": m.id,
+            "text": m.name,
+            "smartanName": m.user.fullName if m.user else "Unknown",
+            "date": m.date
+        }
+        for m in recent_milestones_rows
+    ]
+
     return {
         "summary": {
             "totalHours": total_hours,
@@ -3755,7 +3806,8 @@ def get_admin_analytics(
             "totalHours": total_hours
         },
         "logs": logs[:100],
-        "tracks": filtered_tracks
+        "tracks": filtered_tracks,
+        "recentMilestones": recent_milestones
     }
 
 @router_admin.post("/notifications")
@@ -3836,14 +3888,12 @@ def get_admin_profile(current_admin: User = Depends(get_current_admin), db: Sess
 def edit_admin_profile(payload: dict, current_admin: User = Depends(get_current_admin), db: Session = Depends(get_db)):
     fullName = payload.get("fullName")
     mission = payload.get("mission")
-    avatarUrl = payload.get("avatarUrl")
 
     if not fullName:
         raise HTTPException(400, "fullName is required")
 
     current_admin.fullName = fullName
     current_admin.mission = mission
-    current_admin.avatarUrl = avatarUrl
     db.commit()
     return {"status": "success"}
 

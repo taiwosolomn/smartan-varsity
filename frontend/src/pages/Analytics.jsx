@@ -81,8 +81,9 @@ const getDateRangeParams = (range) => {
   return { from: fromStr, to: toStr };
 };
 
-export default function Analytics() {
+export default function Analytics({ smartanId, smartanName } = {}) {
   const navigate = useNavigate();
+  const isAdminView = !!smartanId;
   const [summary, setSummary] = useState(null);
   const [byTrack, setByTrack] = useState([]);
   const [heatmap, setHeatmap] = useState([]);
@@ -115,7 +116,10 @@ export default function Analytics() {
     }
 
     const now = Date.now();
-    const cacheIsValid = _analyticsMemCache && (now - _analyticsMemCacheTs < ANALYTICS_CACHE_TTL);
+    // Admin-viewing-a-Smartan mode always fetches fresh — the shared module-level cache
+    // isn't keyed by whose data it holds, so reusing it here could show one Smartan's
+    // numbers while the admin believes they're looking at another's.
+    const cacheIsValid = !isAdminView && _analyticsMemCache && (now - _analyticsMemCacheTs < ANALYTICS_CACHE_TTL);
     const cacheMatchesFilters = _analyticsMemCache &&
       _analyticsMemCache._dateRange === dateRange &&
       _analyticsMemCache._trackId === selectedTrackId;
@@ -135,7 +139,8 @@ export default function Analytics() {
       setLoading(true);
       setAnimateProgress(false);
       const { from, to } = getDateRangeParams(dateRange);
-      const filterParams = { trackId: selectedTrackId, from, to };
+      const scopeParam = isAdminView ? { smartan_id: smartanId } : {};
+      const filterParams = { trackId: selectedTrackId, from, to, ...scopeParam };
 
       // Concurrent fetch requests
       const [
@@ -145,11 +150,11 @@ export default function Analytics() {
         fetchWithCache('/analytics/summary', filterParams),
         fetchWithCache('/analytics/by-track', filterParams),
         fetchWithCache('/analytics/heatmap', filterParams),
-        fetchWithCache('/milestones', { trackId: selectedTrackId }),
+        fetchWithCache('/milestones', { trackId: selectedTrackId, ...scopeParam }),
         fetchWithCache('/analytics/mastery', filterParams),
         fetchWithCache('/analytics/streak', filterParams),
-        fetchWithCache('/logs', { trackId: selectedTrackId, limit: 1000, from, to }),
-        fetchWithCache('/tracks', {})
+        fetchWithCache('/logs', { trackId: selectedTrackId, limit: 1000, from, to, ...scopeParam }),
+        fetchWithCache('/tracks', scopeParam)
       ]);
 
       const newCacheData = {
@@ -158,12 +163,15 @@ export default function Analytics() {
         logs: logsData.logs || logsData, tracks: tracksData,
         _dateRange: dateRange, _trackId: selectedTrackId
       };
-      _analyticsMemCache = newCacheData;
-      _analyticsMemCacheTs = Date.now();
-      try {
-        localStorage.setItem(ANALYTICS_CACHE_KEY, JSON.stringify(newCacheData));
-        localStorage.setItem(ANALYTICS_CACHE_TS_KEY, _analyticsMemCacheTs.toString());
-      } catch (e) {}
+
+      if (!isAdminView) {
+        _analyticsMemCache = newCacheData;
+        _analyticsMemCacheTs = Date.now();
+        try {
+          localStorage.setItem(ANALYTICS_CACHE_KEY, JSON.stringify(newCacheData));
+          localStorage.setItem(ANALYTICS_CACHE_TS_KEY, _analyticsMemCacheTs.toString());
+        } catch (e) {}
+      }
 
       setSummary(summaryData); setByTrack(byTrackData); setHeatmap(heatmapData);
       setMilestones(milestonesData.slice(0, 5)); setMasteryData(masteryData);
@@ -654,9 +662,9 @@ export default function Analytics() {
       <div className="dashboard-header-row" style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
         <div>
           <div className="kthin" style={{ width: '40px', borderRadius: '99px', marginBottom: '16px' }} />
-          <h1 className="dashboard-title">Analytics.</h1>
+          <h1 className="dashboard-title">{isAdminView ? `${smartanName || 'Smartan'}'s Analytics.` : 'Analytics.'}</h1>
           <div style={{ font: '600 13.5px Urbanist', color: 'var(--text-muted)', marginTop: '4px' }}>
-            Everything you've put in — measured.
+            {isAdminView ? 'Individual analytics view — identical to what this Smartan sees on their own account.' : "Everything you've put in — measured."}
           </div>
           {selectedTrackId !== 'all' && bestTrack && (
             <div style={{ font: '700 12.5px Urbanist', color: bestTrack.color || 'var(--text)', marginTop: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -799,7 +807,9 @@ export default function Analytics() {
             <div 
               className="stat-box stat-card-clickable" 
               onClick={() => {
-                if (bestTrack) navigate(`/tracks/${bestTrack.trackId || bestTrack.id}`);
+                if (!bestTrack) return;
+                const trackId = bestTrack.trackId || bestTrack.id;
+                navigate(isAdminView ? `/admin/smartans/${smartanId}/tracks/${trackId}` : `/tracks/${trackId}`);
               }}
               style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '24px', gap: '4px', overflow: 'hidden' }}
             >
@@ -1023,9 +1033,9 @@ export default function Analytics() {
                     );
                   })}
                   <div style={{ marginTop: '8px', borderTop: '1px solid var(--rail-border)', paddingTop: '14px' }}>
-                    <Link 
-                      to="/sessions?milestones=true" 
-                      style={{ 
+                    <Link
+                      to={isAdminView ? `/admin/smartans/${smartanId}/sessions` : '/sessions?milestones=true'}
+                      style={{
                         font: '800 12.5px Urbanist', 
                         color: 'var(--accent, #e5a83c)', 
                         textDecoration: 'none', 

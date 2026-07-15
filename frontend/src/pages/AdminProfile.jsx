@@ -1,11 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import api, { renderActivityIcon, renderActivityText } from '../api';
 import { useAuth } from '../App';
-import { IconEdit, IconLoader, IconAlertCircle } from '@tabler/icons-react';
+import { IconEdit, IconLoader, IconAlertCircle, IconUpload } from '@tabler/icons-react';
+
+const CIRCLE_SIZE = 280;  // px – crop circle display diameter
+const OUTPUT_SIZE = 400;  // px – canvas export size
 
 export default function AdminProfile() {
   const { fetchUser } = useAuth();
-  
+
   // Scoped loading & error states
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -17,8 +20,21 @@ export default function AdminProfile() {
   // Edit details form state
   const [fullName, setFullName] = useState('');
   const [tagline, setTagline] = useState('');
-  const [avatarUrl, setAvatarUrl] = useState('');
   const [saving, setSaving] = useState(false);
+  const [isRemovingAvatar, setIsRemovingAvatar] = useState(false);
+
+  // Avatar crop state — identical flow to the Smartan Profile page
+  const [pendingAvatarUrl, setPendingAvatarUrl] = useState(null);
+  const [showCropModal, setShowCropModal] = useState(false);
+  const [cropZoom, setCropZoom] = useState(1);
+  const [cropOffset, setCropOffset] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [avatarUploading, setAvatarUploading] = useState(false);
+
+  const fileInputRef = useRef(null);
+  const imgRef = useRef(null);
+  const naturalDims = useRef({ w: 0, h: 0 });
 
   useEffect(() => {
     try {
@@ -28,7 +44,6 @@ export default function AdminProfile() {
         setData(parsed);
         setFullName(parsed.profile.fullName);
         setTagline(parsed.profile.mission || '');
-        setAvatarUrl(parsed.profile.avatarUrl || '');
         setLoading(false);
       }
     } catch (e) {
@@ -42,8 +57,7 @@ export default function AdminProfile() {
       setData(res.data);
       setFullName(res.data.profile.fullName);
       setTagline(res.data.profile.mission || '');
-      setAvatarUrl(res.data.profile.avatarUrl || '');
-      
+
       setLoading(false);
       setError(false);
 
@@ -73,16 +87,14 @@ export default function AdminProfile() {
         ...data.profile,
         fullName,
         mission: tagline,
-        avatarUrl
       };
       setData(prev => ({ ...prev, profile: updatedProfile }));
-      
+
       await api.post('/admin/profile/edit', {
         fullName,
         mission: tagline,
-        avatarUrl
       });
-      
+
       await fetchProfile();
       await fetchUser(); // Reload parent auth context
       setShowEditModal(false);
@@ -92,6 +104,153 @@ export default function AdminProfile() {
     } finally {
       setSaving(false);
     }
+  };
+
+  // ── Avatar – file selection ───────────────────────────────────────────────
+  const handleFileSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    const url = URL.createObjectURL(file);
+    setPendingAvatarUrl(url);
+    setCropZoom(1);
+    setCropOffset({ x: 0, y: 0 });
+    setShowCropModal(true);
+  };
+
+  // ── Avatar – crop & upload ────────────────────────────────────────────────
+  const handleCropSave = async () => {
+    if (!imgRef.current || !naturalDims.current.w) return;
+    setAvatarUploading(true);
+    try {
+      const { w: nw, h: nh } = naturalDims.current;
+      const baseScale = CIRCLE_SIZE / Math.min(nw, nh);
+      const totalScale = baseScale * cropZoom;
+
+      const sw = CIRCLE_SIZE / totalScale;
+      const sh = CIRCLE_SIZE / totalScale;
+      const sx = nw / 2 - cropOffset.x / totalScale - sw / 2;
+      const sy = nh / 2 - cropOffset.y / totalScale - sh / 2;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = OUTPUT_SIZE;
+      canvas.height = OUTPUT_SIZE;
+      canvas.getContext('2d').drawImage(imgRef.current, sx, sy, sw, sh, 0, 0, OUTPUT_SIZE, OUTPUT_SIZE);
+
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.92));
+      const formData = new FormData();
+      formData.append('file', blob, 'avatar.jpg');
+
+      await api.post('/auth/avatar', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+
+      URL.revokeObjectURL(pendingAvatarUrl);
+      setPendingAvatarUrl(null);
+      setShowCropModal(false);
+      await fetchProfile();
+      await fetchUser();
+    } catch (err) {
+      console.error('Avatar upload failed', err);
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+
+  const handleCropCancel = () => {
+    if (pendingAvatarUrl) URL.revokeObjectURL(pendingAvatarUrl);
+    setPendingAvatarUrl(null);
+    setShowCropModal(false);
+  };
+
+  const handleRemoveAvatar = async () => {
+    if (isRemovingAvatar) return;
+    setIsRemovingAvatar(true);
+    try {
+      await api.delete('/auth/avatar');
+      await fetchProfile();
+      await fetchUser();
+    } catch (err) {
+      console.error('Remove avatar failed', err);
+    } finally {
+      setIsRemovingAvatar(false);
+    }
+  };
+
+  // ── Drag helpers (with edge clamping) ────────────────────────────────────
+  const clampedOffset = useCallback((rawX, rawY, zoom) => {
+    const { w: nw, h: nh } = naturalDims.current;
+    if (!nw) return { x: rawX, y: rawY };
+    const baseScale = CIRCLE_SIZE / Math.min(nw, nh);
+    const totalScale = baseScale * zoom;
+    const maxX = Math.max(0, (nw * totalScale - CIRCLE_SIZE) / 2);
+    const maxY = Math.max(0, (nh * totalScale - CIRCLE_SIZE) / 2);
+    return {
+      x: Math.max(-maxX, Math.min(maxX, rawX)),
+      y: Math.max(-maxY, Math.min(maxY, rawY)),
+    };
+  }, []);
+
+  const handleDragMouseDown = (e) => {
+    e.preventDefault();
+    setIsDragging(true);
+    setDragStart({ x: e.clientX - cropOffset.x, y: e.clientY - cropOffset.y });
+  };
+
+  const handleDragTouchStart = (e) => {
+    const t = e.touches[0];
+    setIsDragging(true);
+    setDragStart({ x: t.clientX - cropOffset.x, y: t.clientY - cropOffset.y });
+  };
+
+  const handleDragMouseMove = useCallback((e) => {
+    if (!isDragging) return;
+    setCropOffset(clampedOffset(e.clientX - dragStart.x, e.clientY - dragStart.y, cropZoom));
+  }, [isDragging, dragStart, cropZoom, clampedOffset]);
+
+  const handleDragTouchMove = useCallback((e) => {
+    if (!isDragging) return;
+    const t = e.touches[0];
+    setCropOffset(clampedOffset(t.clientX - dragStart.x, t.clientY - dragStart.y, cropZoom));
+  }, [isDragging, dragStart, cropZoom, clampedOffset]);
+
+  const handleDragEnd = useCallback(() => setIsDragging(false), []);
+
+  useEffect(() => {
+    if (!showCropModal) return;
+    window.addEventListener('mousemove', handleDragMouseMove);
+    window.addEventListener('mouseup', handleDragEnd);
+    window.addEventListener('touchmove', handleDragTouchMove, { passive: false });
+    window.addEventListener('touchend', handleDragEnd);
+    return () => {
+      window.removeEventListener('mousemove', handleDragMouseMove);
+      window.removeEventListener('mouseup', handleDragEnd);
+      window.removeEventListener('touchmove', handleDragTouchMove);
+      window.removeEventListener('touchend', handleDragEnd);
+    };
+  }, [showCropModal, handleDragMouseMove, handleDragTouchMove, handleDragEnd]);
+
+  // Re-clamp offset whenever zoom changes
+  useEffect(() => {
+    if (naturalDims.current.w) {
+      setCropOffset(prev => clampedOffset(prev.x, prev.y, cropZoom));
+    }
+  }, [cropZoom, clampedOffset]);
+
+  const getCropImgStyle = () => {
+    if (!naturalDims.current.w) return { visibility: 'hidden' };
+    const { w: nw, h: nh } = naturalDims.current;
+    const baseScale = CIRCLE_SIZE / Math.min(nw, nh);
+    return {
+      position: 'absolute',
+      width: `${nw * baseScale}px`,
+      height: `${nh * baseScale}px`,
+      left: '50%',
+      top: '50%',
+      transform: `translate(calc(-50% + ${cropOffset.x}px), calc(-50% + ${cropOffset.y}px)) scale(${cropZoom})`,
+      transformOrigin: 'center center',
+      userSelect: 'none',
+      pointerEvents: 'none',
+      draggable: 'false',
+    };
   };
 
   const renderProfileSkeleton = () => (
@@ -120,9 +279,16 @@ export default function AdminProfile() {
 
   const { profile, stats, activity } = data;
 
+  const avatarSrc = profile.avatarUrl
+    ? (profile.avatarUrl.startsWith('http') ? profile.avatarUrl : `${api.defaults.baseURL || ''}${profile.avatarUrl.startsWith('/') ? '' : '/'}${profile.avatarUrl}`)
+    : null;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '28px', fontFamily: 'Urbanist, sans-serif' }}>
-      
+
+      {/* Hidden file input */}
+      <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileSelect} />
+
       {/* PAGE TITLE */}
       <div>
         <div className="kthin" style={{ width: '40px', borderRadius: '99px', marginBottom: '16px' }} />
@@ -135,23 +301,43 @@ export default function AdminProfile() {
       {/* 1. HEADER HERO */}
       <div className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '36px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-          <div style={{
-            width: '80px',
-            height: '80px',
-            borderRadius: '50%',
-            background: 'var(--tab-active-border, #C25A3A)',
-            color: '#fff',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            fontSize: '32px',
-            fontWeight: 900
-          }}>
-            {profile.avatarUrl ? (
-              <img src={profile.avatarUrl.startsWith('http') ? profile.avatarUrl : `${api.defaults.baseURL || ''}${profile.avatarUrl}`} alt="Avatar" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+          <div
+            onClick={() => fileInputRef.current?.click()}
+            title="Click to change avatar"
+            style={{
+              width: '80px',
+              height: '80px',
+              borderRadius: '50%',
+              background: 'var(--tab-active-border, #C25A3A)',
+              color: '#fff',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              fontSize: '32px',
+              fontWeight: 900,
+              cursor: 'pointer',
+              position: 'relative',
+              overflow: 'hidden',
+              flexShrink: 0,
+            }}
+          >
+            {avatarSrc ? (
+              <img src={avatarSrc} alt="Avatar" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
             ) : (
               (profile.fullName || '?').charAt(0).toUpperCase()
             )}
+            {/* Hover overlay hint */}
+            <div style={{
+              position: 'absolute', inset: 0, borderRadius: '50%',
+              background: 'rgba(0,0,0,0.45)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              opacity: 0, transition: 'opacity 0.2s',
+            }}
+              onMouseEnter={e => e.currentTarget.style.opacity = 1}
+              onMouseLeave={e => e.currentTarget.style.opacity = 0}
+            >
+              <IconUpload size={18} style={{ color: '#fff' }} />
+            </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -384,23 +570,53 @@ export default function AdminProfile() {
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label style={{ font: '800 11px Urbanist', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>Avatar URL</label>
-                <input 
-                  type="text" 
-                  value={avatarUrl}
-                  onChange={e => setAvatarUrl(e.target.value)}
-                  placeholder="https://images.unsplash.com/..."
-                  style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    background: 'var(--input-bg)',
-                    border: '1px solid var(--input-border)',
-                    borderRadius: '8px',
-                    font: '600 13.5px Urbanist',
-                    color: 'var(--text)',
-                    outline: 'none'
-                  }}
-                />
+                <label style={{ font: '800 11px Urbanist', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>Avatar</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginTop: '8px' }}>
+                  <div style={{
+                    width: '64px', height: '64px', borderRadius: '50%', overflow: 'hidden', flexShrink: 0,
+                    background: 'var(--tab-active-border, #C25A3A)', color: '#fff',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '22px', fontWeight: 900,
+                  }}>
+                    {avatarSrc
+                      ? <img src={avatarSrc} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      : (profile.fullName || '?').charAt(0).toUpperCase()
+                    }
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '6px',
+                        padding: '9px 18px', borderRadius: '99px',
+                        background: 'var(--card-bg)', color: 'var(--text)',
+                        font: '700 13px Urbanist',
+                        border: '1.5px solid var(--input-border)', cursor: 'pointer',
+                      }}
+                    >
+                      <IconUpload size={14} strokeWidth={2} />
+                      Change
+                    </button>
+                    {profile.avatarUrl && (
+                      <button
+                        type="button"
+                        onClick={handleRemoveAvatar}
+                        disabled={isRemovingAvatar}
+                        style={{
+                          padding: '9px 18px', borderRadius: '99px',
+                          background: 'transparent', color: '#ef4444',
+                          font: '700 13px Urbanist',
+                          border: '1.5px solid rgba(239,68,68,0.25)',
+                          cursor: isRemovingAvatar ? 'not-allowed' : 'pointer',
+                          opacity: isRemovingAvatar ? 0.6 : 1,
+                        }}
+                      >
+                        {isRemovingAvatar ? 'Removing…' : 'Remove'}
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '12px' }}>
@@ -423,6 +639,97 @@ export default function AdminProfile() {
               </div>
 
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── CROP / ADJUST MODAL ───────────────────────────────── */}
+      {showCropModal && pendingAvatarUrl && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 9999,
+          background: 'rgba(0,0,0,0.82)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          backdropFilter: 'blur(8px)',
+        }}>
+          <div style={{
+            background: '#1a1a22', borderRadius: '22px', padding: '36px 36px 32px',
+            width: '440px', maxWidth: '94vw',
+            boxShadow: '0 32px 80px rgba(0,0,0,0.6)',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+              <h3 style={{ font: '800 20px Urbanist', color: '#fff', margin: 0 }}>Adjust Profile Picture</h3>
+              <button onClick={handleCropCancel} style={{ background: 'transparent', border: 'none', color: '#888', fontSize: '24px', cursor: 'pointer', lineHeight: 1, padding: '0 4px' }}>×</button>
+            </div>
+            <p style={{ font: '400 13px/1.55 Urbanist', color: '#777', margin: '0 0 26px' }}>
+              Drag the image to position, and use the zoom slider to crop.
+            </p>
+
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '30px' }}>
+              <div
+                onMouseDown={handleDragMouseDown}
+                onTouchStart={handleDragTouchStart}
+                style={{
+                  width: `${CIRCLE_SIZE}px`, height: `${CIRCLE_SIZE}px`,
+                  borderRadius: '50%', overflow: 'hidden', position: 'relative',
+                  cursor: isDragging ? 'grabbing' : 'grab',
+                  border: '3px solid #e6a820',
+                  boxShadow: '0 0 0 1px rgba(230,168,32,0.25), 0 10px 40px rgba(0,0,0,0.5)',
+                  userSelect: 'none', background: '#111',
+                }}
+              >
+                <img
+                  ref={imgRef}
+                  src={pendingAvatarUrl}
+                  alt="crop"
+                  onLoad={() => {
+                    if (imgRef.current) {
+                      naturalDims.current = { w: imgRef.current.naturalWidth, h: imgRef.current.naturalHeight };
+                      setCropZoom(z => z);
+                    }
+                  }}
+                  style={getCropImgStyle()}
+                  draggable={false}
+                />
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '28px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                <span style={{ font: '700 10px Urbanist', color: '#777', textTransform: 'uppercase', letterSpacing: '0.8px' }}>ZOOM SCALE</span>
+                <span style={{ font: '700 12px Urbanist', color: '#e6a820' }}>{Math.round(cropZoom * 100)}%</span>
+              </div>
+              <input
+                type="range" min="1" max="3" step="0.01"
+                value={cropZoom}
+                onChange={e => setCropZoom(parseFloat(e.target.value))}
+                style={{ width: '100%', accentColor: '#e6a820', cursor: 'pointer', height: '4px' }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={handleCropCancel}
+                style={{
+                  padding: '12px 24px', borderRadius: '99px',
+                  background: 'transparent', color: '#bbb',
+                  font: '700 14px Urbanist', border: '1.5px solid #444', cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCropSave}
+                disabled={avatarUploading}
+                style={{
+                  padding: '12px 28px', borderRadius: '99px',
+                  background: '#e6a820', color: '#000',
+                  font: '800 14px Urbanist', border: 'none', cursor: 'pointer',
+                  opacity: avatarUploading ? 0.7 : 1, transition: 'opacity 0.15s',
+                }}
+              >
+                {avatarUploading ? 'Uploading…' : 'Crop & Save'}
+              </button>
+            </div>
           </div>
         </div>
       )}
