@@ -930,9 +930,7 @@ function AdminLayout({ children }) {
           className="rico"
           data-page="settings"
           style={{ marginTop: 'auto', cursor: 'pointer' }}
-          onClick={() => {
-            alert("Settings are managed in the student panel.");
-          }}
+          onClick={() => navigate('/settings')}
         >
           <IconSettings size={22} />
           <span className="nav-tooltip">Settings</span>
