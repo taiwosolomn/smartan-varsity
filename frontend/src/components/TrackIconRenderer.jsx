@@ -145,6 +145,11 @@ export default function TrackIconRenderer({
   }
 
   // ── Emoji type (default) ────────────────────────────────────────────────
+  // Wrapped in a flex-centered outer span so callers that pass width:'100%'/
+  // height:'100%' (the same style used for the image/library branches) still
+  // center the glyph instead of leaving it pinned to the box's text-flow
+  // origin — the inner span keeps the glyph's own fontSize fixed regardless
+  // of how the outer box gets stretched.
   const emojiChar = icon_value || icon || '🧠';
   return (
     <span
@@ -152,15 +157,17 @@ export default function TrackIconRenderer({
       role="img"
       aria-label={`${name || 'Track'} icon`}
       style={{
-        fontSize: size,
-        lineHeight: 1,
-        display: 'inline-block',
+        width: size,
+        height: size,
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
         userSelect: 'none',
         flexShrink: 0,
         ...style,
       }}
     >
-      {emojiChar}
+      <span style={{ fontSize: size, lineHeight: 1 }}>{emojiChar}</span>
     </span>
   );
 }

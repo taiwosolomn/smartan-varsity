@@ -825,6 +825,27 @@ function PrivateRoute({ children }) {
   return <Layout>{children}</Layout>;
 }
 
+// Wraps PrivateRoute for the Smartan-only surface (dashboard, tracks, logging, etc.) —
+// admins have their own dashboard/tracks/analytics under /admin/* and should never end
+// up with a parallel Smartan-style profile/track set under their own admin account.
+function SmartanOnlyRoute({ children }) {
+  const { session, user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: 'var(--page, #F4F2F8)', color: 'var(--text, #100D18)', fontFamily: 'Urbanist, sans-serif', fontWeight: 700 }}>
+        Loading OS...
+      </div>
+    );
+  }
+
+  if (session && user && user.role === 'admin') {
+    return <Navigate to="/admin/dashboard" replace />;
+  }
+
+  return <PrivateRoute>{children}</PrivateRoute>;
+}
+
 // Protected Route Guard for Admins
 function AdminPrivateRoute({ children }) {
   const { session, user, loading } = useAuth();
@@ -1304,18 +1325,18 @@ export default function App() {
                   <Route path="/forgot-password" element={<ForgotPassword />} />
                   <Route path="/reset-password" element={<ResetPassword />} />
                   
-                  <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-                  <Route path="/tracks" element={<PrivateRoute><Tracks /></PrivateRoute>} />
-                  <Route path="/tracks/:trackId" element={<PrivateRoute><TrackView /></PrivateRoute>} />
-                  <Route path="/log" element={<PrivateRoute><LogSession /></PrivateRoute>} />
-                  <Route path="/sessions" element={<PrivateRoute><Sessions /></PrivateRoute>} />
-                  <Route path="/analytics" element={<PrivateRoute><Analytics /></PrivateRoute>} />
-                  <Route path="/calendar" element={<PrivateRoute><Calendar /></PrivateRoute>} />
-                  <Route path="/resources" element={<PrivateRoute><Resources /></PrivateRoute>} />
-                  <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
+                  <Route path="/dashboard" element={<SmartanOnlyRoute><Dashboard /></SmartanOnlyRoute>} />
+                  <Route path="/tracks" element={<SmartanOnlyRoute><Tracks /></SmartanOnlyRoute>} />
+                  <Route path="/tracks/:trackId" element={<SmartanOnlyRoute><TrackView /></SmartanOnlyRoute>} />
+                  <Route path="/log" element={<SmartanOnlyRoute><LogSession /></SmartanOnlyRoute>} />
+                  <Route path="/sessions" element={<SmartanOnlyRoute><Sessions /></SmartanOnlyRoute>} />
+                  <Route path="/analytics" element={<SmartanOnlyRoute><Analytics /></SmartanOnlyRoute>} />
+                  <Route path="/calendar" element={<SmartanOnlyRoute><Calendar /></SmartanOnlyRoute>} />
+                  <Route path="/resources" element={<SmartanOnlyRoute><Resources /></SmartanOnlyRoute>} />
+                  <Route path="/profile" element={<SmartanOnlyRoute><Profile /></SmartanOnlyRoute>} />
                   <Route path="/settings" element={<PrivateRoute><SettingsPage /></PrivateRoute>} />
-                  <Route path="/import-curriculum" element={<PrivateRoute><ImportCurriculum /></PrivateRoute>} />
-                  <Route path="/import-curriculum/:importId" element={<PrivateRoute><ReviewCurriculum /></PrivateRoute>} />
+                  <Route path="/import-curriculum" element={<SmartanOnlyRoute><ImportCurriculum /></SmartanOnlyRoute>} />
+                  <Route path="/import-curriculum/:importId" element={<SmartanOnlyRoute><ReviewCurriculum /></SmartanOnlyRoute>} />
 
                   {/* Admin routes */}
                   <Route path="/admin/login" element={<AdminLogin />} />
