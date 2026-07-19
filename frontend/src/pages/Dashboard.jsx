@@ -809,7 +809,15 @@ export default function Dashboard() {
                   }}
                 >
                   <div className="activity-row-icon" style={{ background: `${l.trackColor || '#ccc'}15`, color: l.trackColor || '#ccc' }}>
-                    {renderTrackIcon(l.trackIcon || '📚', 16)}
+                    {renderTrackIcon({
+                      icon: l.trackIcon || '📚',
+                      icon_type: l.trackIconType,
+                      icon_value: l.trackIconValue,
+                      icon_image_url: l.trackIconImageUrl,
+                      icon_thumb_url: l.trackIconThumbUrl,
+                      name: l.trackName,
+                      color: l.trackColor,
+                    }, 16)}
                   </div>
                   <div className="activity-row-details">
                     <div className="activity-row-title">{l.topic}</div>

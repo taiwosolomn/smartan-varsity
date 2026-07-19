@@ -2021,6 +2021,10 @@ def get_analytics_by_track(
             "trackId": t.id,
             "name": t.name,
             "icon": t.icon,
+            "icon_type": t.icon_type,
+            "icon_value": t.icon_value,
+            "icon_image_url": t.icon_image_url,
+            "icon_thumb_url": t.icon_thumb_url,
             "color": t.color,
             "hours": round(mins / 60, 1),
             "sessionCount": session_count
@@ -2253,6 +2257,10 @@ def get_dashboard_summary(current_user: User = Depends(get_current_user), db: Se
             "id": t.id,
             "name": t.name,
             "icon": t.icon,
+            "icon_type": t.icon_type,
+            "icon_value": t.icon_value,
+            "icon_image_url": t.icon_image_url,
+            "icon_thumb_url": t.icon_thumb_url,
             "color": t.color,
             "progress": progress
         })
@@ -2312,7 +2320,11 @@ def get_dashboard_summary(current_user: User = Depends(get_current_user), db: Se
             "notes": rl.notes,
             "trackName": t.name if t else "Unknown",
             "trackColor": t.color if t else "#ccc",
-            "trackIcon": t.icon if t else "📚"
+            "trackIcon": t.icon if t else "📚",
+            "trackIconType": t.icon_type if t else "emoji",
+            "trackIconValue": t.icon_value if t else None,
+            "trackIconImageUrl": t.icon_image_url if t else None,
+            "trackIconThumbUrl": t.icon_thumb_url if t else None
         })
         
     return {
