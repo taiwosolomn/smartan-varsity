@@ -977,6 +977,11 @@ def upload_track_icon(file: UploadFile = File(...), current_user: User = Depends
         top  = (h - min_dim) // 2
         img = img.crop((left, top, left + min_dim, top + min_dim))
 
+        # Uploaded to Supabase Storage (not local disk — Railway's filesystem is
+        # ephemeral and wipes on every redeploy, which previously erased every
+        # uploaded track icon). Reuses the same public "avatars" bucket under a
+        # "tracks/" path prefix rather than requiring a second bucket to be
+        # created manually.
         base_name = f"track_{uuid.uuid4().hex}"
         sizes = {"full": 192, "thumb": 48}
         urls = {}
@@ -986,20 +991,19 @@ def upload_track_icon(file: UploadFile = File(...), current_user: User = Depends
             bg = PILImage.new("RGB", resized.size, (255, 255, 255))
             bg.paste(resized, mask=resized.split()[3] if resized.mode == 'RGBA' else None)
             fname = f"{base_name}_{label}.jpg"
-            fpath = os.path.join(STATIC_DIR, "tracks", fname)
-            bg.save(fpath, "JPEG", quality=90)
-            urls[label] = f"/static/tracks/{fname}"
+            buf = io.BytesIO()
+            bg.save(buf, "JPEG", quality=90)
+            urls[label] = upload_to_supabase_storage("avatars", f"tracks/{fname}", buf.getvalue(), "image/jpeg")
         return {"iconUrl": urls["full"], "thumbUrl": urls["thumb"]}
 
     except ImportError:
-        # Pillow not installed — fall back to raw save
+        # Pillow not installed — fall back to a raw upload (still to Supabase Storage)
         file_ext = os.path.splitext(file.filename)[1] or ".jpg"
         file_name = f"track_{uuid.uuid4().hex}{file_ext}"
-        file_path = os.path.join(STATIC_DIR, "tracks", file_name)
-        with open(file_path, "wb") as buffer:
-            buffer.write(contents)
-        icon_url = f"/static/tracks/{file_name}"
+        icon_url = upload_to_supabase_storage("avatars", f"tracks/{file_name}", contents, file.content_type)
         return {"iconUrl": icon_url, "thumbUrl": icon_url}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to process image: {str(e)}")
 
