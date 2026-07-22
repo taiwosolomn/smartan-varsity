@@ -7,8 +7,9 @@ import {
   IconArrowLeft, IconMenu2, IconPlayerPlay, IconChevronDown,
   IconPlus, IconDotsVertical, IconX, IconRefresh, IconTrophy, IconTrash,
   IconBook, IconBolt, IconTools, IconCheckbox, IconPencil, IconFile, IconUpload,
-  IconCalendar, IconFileText, IconAlertCircle, IconCheck
+  IconCalendar, IconFileText, IconAlertCircle, IconCheck, IconCopy
 } from '@tabler/icons-react';
+import { COURSES_MODULES_IMPORT_PROMPT } from '../utils/aiPrompts.js';
 
 import { useCustomDialog } from '../App';
 
@@ -80,6 +81,7 @@ export default function TrackView() {
   const [importUploading, setImportUploading] = useState(false);
   const [importConfirming, setImportConfirming] = useState(false);
   const [importAckDuplicates, setImportAckDuplicates] = useState(false);
+  const [importPromptCopied, setImportPromptCopied] = useState(false);
   const importFileInputRef = useRef(null);
 
   // Edit Track State
@@ -624,6 +626,17 @@ export default function TrackView() {
     setImportParsedData(null);
     setImportPreview(null);
     setImportAckDuplicates(false);
+    setImportPromptCopied(false);
+  };
+
+  const handleCopyImportPrompt = async () => {
+    try {
+      await navigator.clipboard.writeText(COURSES_MODULES_IMPORT_PROMPT);
+      setImportPromptCopied(true);
+      setTimeout(() => setImportPromptCopied(false), 2000);
+    } catch (err) {
+      console.error('Copy failed', err);
+    }
   };
 
   const handleCreateModule = async (e) => {
@@ -1271,6 +1284,27 @@ export default function TrackView() {
                     Existing Courses and Modules are kept — nothing is overwritten. Imported items land unscheduled;
                     set due dates manually afterward.
                   </p>
+
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '12px 14px', borderRadius: '10px', background: 'var(--input-bg)', border: '1px solid var(--input-border)' }}>
+                    <span style={{ font: '600 12.5px/1.5 Urbanist', color: 'var(--text-muted)' }}>
+                      Don't have a JSON file yet? Copy the AI prompt and paste it, along with your Course/Module breakdown, into your AI tool of choice.
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleCopyImportPrompt}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0,
+                        padding: '8px 14px', borderRadius: '99px',
+                        background: importPromptCopied ? 'rgba(52,168,83,0.12)' : 'var(--card-bg)',
+                        color: importPromptCopied ? '#34A853' : 'var(--text)',
+                        font: '700 12px Urbanist',
+                        border: `1.5px solid ${importPromptCopied ? 'rgba(52,168,83,0.35)' : 'var(--input-border)'}`,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {importPromptCopied ? <><IconCheck size={13} /> Copied</> : <><IconCopy size={13} /> Copy prompt</>}
+                    </button>
+                  </div>
 
                   <div
                     onDrop={handleImportDrop}

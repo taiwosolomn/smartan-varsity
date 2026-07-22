@@ -1,7 +1,8 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
-import { IconUpload, IconFileText, IconAlertCircle, IconX } from '@tabler/icons-react';
+import { IconUpload, IconFileText, IconAlertCircle, IconX, IconCopy, IconCheck } from '@tabler/icons-react';
+import { CURRICULUM_IMPORT_PROMPT } from '../utils/aiPrompts.js';
 
 const skeletonStyle = `
   @keyframes shimmer {
@@ -52,7 +53,18 @@ export default function ImportCurriculum() {
   const [clientError, setClientError] = useState('');
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
+  const [promptCopied, setPromptCopied] = useState(false);
   const fileInputRef = useRef(null);
+
+  const handleCopyPrompt = async () => {
+    try {
+      await navigator.clipboard.writeText(CURRICULUM_IMPORT_PROMPT);
+      setPromptCopied(true);
+      setTimeout(() => setPromptCopied(false), 2000);
+    } catch (err) {
+      console.error('Copy failed', err);
+    }
+  };
 
   const validateClientSide = (content) => {
     try {
@@ -156,6 +168,21 @@ export default function ImportCurriculum() {
             </div>
           ))}
         </div>
+        <button
+          type="button"
+          onClick={handleCopyPrompt}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '6px',
+            marginTop: '16px', padding: '9px 16px', borderRadius: '99px',
+            background: promptCopied ? 'rgba(52,168,83,0.12)' : 'var(--card-bg)',
+            color: promptCopied ? '#34A853' : 'var(--text)',
+            font: '700 12.5px Urbanist',
+            border: `1.5px solid ${promptCopied ? 'rgba(52,168,83,0.35)' : 'var(--input-border)'}`,
+            cursor: 'pointer',
+          }}
+        >
+          {promptCopied ? <><IconCheck size={14} /> Copied to clipboard</> : <><IconCopy size={14} /> Copy the curriculum generation prompt</>}
+        </button>
       </div>
 
       {/* Drop zone */}
