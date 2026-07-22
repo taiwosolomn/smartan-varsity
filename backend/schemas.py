@@ -129,6 +129,7 @@ class CourseResponse(BaseModel):
     id: str
     trackId: str
     name: str
+    description: Optional[str] = None
     order: int
     modules: List[ModuleResponse] = []
     deadline: Optional[date] = None

@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import api, { renderTrackIcon, formatDuration } from '../api';
 import TrackIconPicker from '../components/TrackIconPicker.jsx';
 import TrackIconRenderer from '../components/TrackIconRenderer.jsx';
-import { 
-  IconArrowLeft, IconMenu2, IconPlayerPlay, IconChevronDown, 
+import {
+  IconArrowLeft, IconMenu2, IconPlayerPlay, IconChevronDown,
   IconPlus, IconDotsVertical, IconX, IconRefresh, IconTrophy, IconTrash,
   IconBook, IconBolt, IconTools, IconCheckbox, IconPencil, IconFile, IconUpload,
-  IconCalendar
+  IconCalendar, IconFileText, IconAlertCircle, IconCheck
 } from '@tabler/icons-react';
 
 import { useCustomDialog } from '../App';
@@ -67,6 +67,20 @@ export default function TrackView() {
   const [editModuleType, setEditModuleType] = useState('reading');
   const [editModuleDescription, setEditModuleDescription] = useState('');
   const [isSavingEditModule, setIsSavingEditModule] = useState(false);
+
+  // Bulk Courses & Modules JSON Import State
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importStep, setImportStep] = useState('upload'); // 'upload' | 'preview' | 'success'
+  const [importFile, setImportFile] = useState(null);
+  const [importDragOver, setImportDragOver] = useState(false);
+  const [importClientError, setImportClientError] = useState('');
+  const [importServerError, setImportServerError] = useState('');
+  const [importParsedData, setImportParsedData] = useState(null);
+  const [importPreview, setImportPreview] = useState(null);
+  const [importUploading, setImportUploading] = useState(false);
+  const [importConfirming, setImportConfirming] = useState(false);
+  const [importAckDuplicates, setImportAckDuplicates] = useState(false);
+  const importFileInputRef = useRef(null);
 
   // Edit Track State
   const [isEditTrackOpen, setIsEditTrackOpen] = useState(false);
@@ -505,6 +519,111 @@ export default function TrackView() {
     } finally {
       setIsSavingCourse(false);
     }
+  };
+
+  // ── Bulk Courses & Modules JSON Import ────────────────────────────────────
+  const validateImportClientSide = (content) => {
+    try {
+      const parsed = JSON.parse(content);
+      if (!parsed || typeof parsed !== 'object') {
+        return { ok: false, error: 'File is not a valid JSON object.', parsed: null };
+      }
+      if (!Array.isArray(parsed.courses)) {
+        return { ok: false, error: "Missing required top-level key 'courses' (must be an array).", parsed: null };
+      }
+      return { ok: true, error: '', parsed };
+    } catch (e) {
+      return { ok: false, error: `Invalid JSON: ${e.message}`, parsed: null };
+    }
+  };
+
+  const processImportFile = (f) => {
+    setImportClientError('');
+    setImportServerError('');
+    if (!f) return;
+    if (!f.name.endsWith('.json')) {
+      setImportClientError('Only .json files are accepted.');
+      return;
+    }
+    setImportFile(f);
+  };
+
+  const handleImportDrop = (e) => {
+    e.preventDefault();
+    setImportDragOver(false);
+    processImportFile(e.dataTransfer.files?.[0]);
+  };
+  const handleImportDragOver = (e) => { e.preventDefault(); setImportDragOver(true); };
+  const handleImportDragLeave = () => setImportDragOver(false);
+  const handleImportFileInput = (e) => processImportFile(e.target.files?.[0]);
+
+  const handleImportUpload = async () => {
+    if (!importFile) return;
+    setImportClientError('');
+    setImportServerError('');
+
+    const content = await importFile.text();
+    const { ok, error: cErr, parsed } = validateImportClientSide(content);
+    if (!ok) {
+      setImportClientError(cErr);
+      return;
+    }
+
+    setImportUploading(true);
+    try {
+      const res = await api.post(`/tracks/${trackId}/courses-import/preview`, { courses: parsed.courses });
+      setImportParsedData(parsed);
+      setImportPreview(res.data);
+      setImportAckDuplicates(false);
+      setImportStep('preview');
+    } catch (err) {
+      const detail = err?.response?.data?.detail;
+      setImportServerError(typeof detail === 'string' ? detail : 'Preview failed. Please try again.');
+    } finally {
+      setImportUploading(false);
+    }
+  };
+
+  const importHasDuplicates =
+    ((importPreview?.duplicates?.courses?.length || 0) + (importPreview?.duplicates?.modules?.length || 0)) > 0;
+
+  const handleImportConfirm = async () => {
+    if (!importParsedData || importConfirming) return;
+    setImportConfirming(true);
+    setImportServerError('');
+    try {
+      await api.post(`/tracks/${trackId}/courses-import/confirm`, {
+        courses: importParsedData.courses,
+        acknowledge_duplicates: importHasDuplicates ? importAckDuplicates : false,
+      });
+      setImportStep('success');
+      await fetchTrackDetails();
+    } catch (err) {
+      const detail = err?.response?.data?.detail;
+      if (detail?.validation_errors) {
+        setImportPreview(prev => ({ ...prev, valid: false, errors: detail.validation_errors }));
+        setImportServerError('This file has validation errors — please fix and re-upload.');
+      } else if (detail?.duplicates) {
+        setImportPreview(prev => ({ ...prev, duplicates: detail.duplicates }));
+        setImportServerError('Please confirm the duplicates below before importing.');
+      } else {
+        setImportServerError(typeof detail === 'string' ? detail : 'Import failed. Please try again.');
+      }
+    } finally {
+      setImportConfirming(false);
+    }
+  };
+
+  const closeImportModal = () => {
+    setIsImportModalOpen(false);
+    setImportStep('upload');
+    setImportFile(null);
+    setImportDragOver(false);
+    setImportClientError('');
+    setImportServerError('');
+    setImportParsedData(null);
+    setImportPreview(null);
+    setImportAckDuplicates(false);
   };
 
   const handleCreateModule = async (e) => {
@@ -966,9 +1085,12 @@ export default function TrackView() {
           </div>
         )}
           
-          <div style={{ display: 'flex', justifyContent: 'center', marginTop: '24px' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginTop: '24px', flexWrap: 'wrap' }}>
             <button className="pillbtn" style={{ background: '#E5A83C', color: '#1C1712' }} onClick={() => setIsCourseModalOpen(true)}>
               + Add course
+            </button>
+            <button className="ghostpill" style={{ display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => setIsImportModalOpen(true)}>
+              <IconUpload size={14} /> Import courses &amp; modules
             </button>
           </div>
         </div>
@@ -1126,6 +1248,254 @@ export default function TrackView() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* IMPORT COURSES & MODULES MODAL */}
+      {isImportModalOpen && (
+        <div className="scrim" onClick={closeImportModal}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ width: '600px', maxWidth: '94vw', maxHeight: '86vh', display: 'flex', flexDirection: 'column' }}>
+            <div className="modal-header">
+              <span className="modal-title">Import Courses &amp; Modules</span>
+              <span className="modal-close" onClick={closeImportModal}>×</span>
+            </div>
+
+            <div style={{ overflowY: 'auto', paddingRight: '4px' }}>
+
+              {/* ── UPLOAD STEP ── */}
+              {importStep === 'upload' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <p style={{ font: '600 13px/1.6 Urbanist', color: 'var(--text-muted)', margin: 0 }}>
+                    Upload a JSON file listing Courses (each with an optional list of Modules) to add to <b>{track?.name}</b>.
+                    Existing Courses and Modules are kept — nothing is overwritten. Imported items land unscheduled;
+                    set due dates manually afterward.
+                  </p>
+
+                  <div
+                    onDrop={handleImportDrop}
+                    onDragOver={handleImportDragOver}
+                    onDragLeave={handleImportDragLeave}
+                    onClick={() => !importFile && importFileInputRef.current?.click()}
+                    style={{
+                      border: `2px dashed ${importDragOver ? '#C25A3A' : importFile ? '#34A853' : 'var(--input-border)'}`,
+                      borderRadius: '14px',
+                      padding: '32px 24px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '12px',
+                      cursor: importFile ? 'default' : 'pointer',
+                      background: importDragOver ? 'rgba(194,90,58,0.04)' : importFile ? 'rgba(52,168,83,0.04)' : 'var(--input-bg)',
+                      transition: 'all 0.2s ease',
+                      textAlign: 'center',
+                      minHeight: '160px',
+                    }}
+                  >
+                    <input
+                      ref={importFileInputRef}
+                      type="file"
+                      accept=".json"
+                      style={{ display: 'none' }}
+                      onChange={handleImportFileInput}
+                    />
+
+                    {importFile ? (
+                      <>
+                        <div style={{ width: '44px', height: '44px', borderRadius: '50%', background: 'rgba(52,168,83,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <IconFileText size={22} style={{ color: '#34A853' }} />
+                        </div>
+                        <div>
+                          <div style={{ font: '800 14px Urbanist', color: 'var(--text)', marginBottom: '4px' }}>{importFile.name}</div>
+                          <div style={{ font: '600 11px Urbanist', color: 'var(--text-muted)' }}>
+                            {(importFile.size / 1024).toFixed(1)} KB · .json file
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          className="ghostpill"
+                          style={{ fontSize: '11px', padding: '5px 12px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                          onClick={e => { e.stopPropagation(); setImportFile(null); setImportClientError(''); setImportServerError(''); }}
+                        >
+                          <IconX size={12} /> Remove file
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <div style={{ width: '44px', height: '44px', borderRadius: '50%', background: 'rgba(194,90,58,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <IconUpload size={22} style={{ color: '#C25A3A' }} />
+                        </div>
+                        <div>
+                          <div style={{ font: '800 14px Urbanist', color: 'var(--text)', marginBottom: '4px' }}>
+                            {importDragOver ? 'Drop it here' : 'Drag & drop your JSON file'}
+                          </div>
+                          <div style={{ font: '600 11px Urbanist', color: 'var(--text-muted)' }}>
+                            or click to browse · .json files only
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {importClientError && (
+                    <div style={{ padding: '12px 16px', borderRadius: '10px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                      <IconAlertCircle size={16} style={{ color: '#EF4444', flexShrink: 0, marginTop: '1px' }} />
+                      <div style={{ font: '600 13px/1.5 Urbanist', color: '#EF4444' }}>{importClientError}</div>
+                    </div>
+                  )}
+                  {importServerError && (
+                    <div style={{ padding: '12px 16px', borderRadius: '10px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                      <IconAlertCircle size={16} style={{ color: '#EF4444', flexShrink: 0, marginTop: '1px' }} />
+                      <div style={{ font: '600 13px/1.5 Urbanist', color: '#EF4444' }}>{importServerError}</div>
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                    <button type="button" className="ghostpill" onClick={closeImportModal}>Cancel</button>
+                    <button
+                      type="button"
+                      className="pillbtn"
+                      disabled={!importFile || importUploading}
+                      onClick={handleImportUpload}
+                      style={{ opacity: !importFile || importUploading ? 0.5 : 1, cursor: !importFile || importUploading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+                    >
+                      {importUploading ? 'Validating…' : 'Upload & Preview'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* ── PREVIEW STEP ── */}
+              {importStep === 'preview' && importPreview && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
+                  {importPreview.errors?.length > 0 && (
+                    <div style={{ padding: '12px 16px', borderRadius: '10px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <IconAlertCircle size={16} style={{ color: '#EF4444', flexShrink: 0 }} />
+                        <span style={{ font: '800 13px Urbanist', color: '#EF4444' }}>This file has {importPreview.errors.length} problem{importPreview.errors.length === 1 ? '' : 's'}</span>
+                      </div>
+                      <ul style={{ margin: 0, paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        {importPreview.errors.map((e, idx) => (
+                          <li key={idx} style={{ font: '600 12.5px Urbanist', color: '#EF4444' }}>
+                            <code style={{ fontSize: '11px', opacity: 0.8 }}>{e.field}</code> — {e.message}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {importPreview.valid && (
+                    <>
+                      <div style={{ display: 'flex', gap: '12px' }}>
+                        <div style={{ flex: 1, padding: '14px 16px', borderRadius: '10px', background: 'var(--input-bg)', border: '1px solid var(--input-border)', textAlign: 'center' }}>
+                          <div style={{ font: '900 22px Urbanist', color: 'var(--text)' }}>{importPreview.summary?.coursesCount || 0}</div>
+                          <div style={{ font: '700 11px Urbanist', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Courses</div>
+                        </div>
+                        <div style={{ flex: 1, padding: '14px 16px', borderRadius: '10px', background: 'var(--input-bg)', border: '1px solid var(--input-border)', textAlign: 'center' }}>
+                          <div style={{ font: '900 22px Urbanist', color: 'var(--text)' }}>{importPreview.summary?.modulesCount || 0}</div>
+                          <div style={{ font: '700 11px Urbanist', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Modules</div>
+                        </div>
+                      </div>
+
+                      {importHasDuplicates && (
+                        <div style={{ padding: '12px 16px', borderRadius: '10px', background: 'rgba(229,168,60,0.08)', border: '1px solid rgba(229,168,60,0.25)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <IconAlertCircle size={16} style={{ color: '#B07D18', flexShrink: 0 }} />
+                            <span style={{ font: '800 13px Urbanist', color: '#B07D18' }}>Possible duplicates found</span>
+                          </div>
+                          <ul style={{ margin: 0, paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            {importPreview.duplicates.courses.map((d, idx) => (
+                              <li key={`c${idx}`} style={{ font: '600 12.5px Urbanist', color: '#B07D18' }}>
+                                Course <b>"{d.name}"</b> — {d.reason}
+                              </li>
+                            ))}
+                            {importPreview.duplicates.modules.map((d, idx) => (
+                              <li key={`m${idx}`} style={{ font: '600 12.5px Urbanist', color: '#B07D18' }}>
+                                Module <b>"{d.name}"</b> in <b>"{d.course}"</b> — {d.reason}
+                              </li>
+                            ))}
+                          </ul>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', font: '700 12.5px Urbanist', color: '#B07D18' }}>
+                            <input type="checkbox" checked={importAckDuplicates} onChange={e => setImportAckDuplicates(e.target.checked)} />
+                            I understand these are duplicates — import anyway
+                          </label>
+                        </div>
+                      )}
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '260px', overflowY: 'auto', paddingRight: '4px' }}>
+                        {importParsedData?.courses?.map((c, ci) => (
+                          <div key={ci} style={{ padding: '12px 14px', borderRadius: '10px', background: 'var(--input-bg)', border: '1px solid var(--input-border)' }}>
+                            <div style={{ font: '800 13.5px Urbanist', color: 'var(--text)' }}>{c.name}</div>
+                            {c.description && (
+                              <div style={{ font: '600 12px Urbanist', color: 'var(--text-muted)', marginTop: '2px' }}>{c.description}</div>
+                            )}
+                            {(c.modules || []).length > 0 && (
+                              <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '6px', paddingLeft: '12px', borderLeft: '2px solid var(--rail-border)' }}>
+                                {c.modules.map((m, mi) => (
+                                  <div key={mi}>
+                                    <div style={{ font: '700 12.5px Urbanist', color: 'var(--text)' }}>{m.name}</div>
+                                    {m.description && (
+                                      <div style={{ font: '600 11px Urbanist', color: 'var(--text-muted)' }}>{m.description}</div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+
+                  {importServerError && (
+                    <div style={{ padding: '12px 16px', borderRadius: '10px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                      <IconAlertCircle size={16} style={{ color: '#EF4444', flexShrink: 0, marginTop: '1px' }} />
+                      <div style={{ font: '600 13px/1.5 Urbanist', color: '#EF4444' }}>{importServerError}</div>
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                    <button type="button" className="ghostpill" onClick={() => setImportStep('upload')} disabled={importConfirming}>
+                      Back
+                    </button>
+                    <button
+                      type="button"
+                      className="pillbtn"
+                      disabled={!importPreview.valid || importConfirming || (importHasDuplicates && !importAckDuplicates)}
+                      onClick={handleImportConfirm}
+                      style={{
+                        opacity: !importPreview.valid || importConfirming || (importHasDuplicates && !importAckDuplicates) ? 0.5 : 1,
+                        cursor: !importPreview.valid || importConfirming || (importHasDuplicates && !importAckDuplicates) ? 'not-allowed' : 'pointer',
+                      }}
+                    >
+                      {importConfirming ? 'Importing…' : 'Confirm Import'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* ── SUCCESS STEP ── */}
+              {importStep === 'success' && (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px', padding: '20px 0' }}>
+                  <div style={{ width: '52px', height: '52px', borderRadius: '50%', background: 'rgba(52,168,83,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <IconCheck size={26} style={{ color: '#34A853' }} />
+                  </div>
+                  <div style={{ font: '800 16px Urbanist', color: 'var(--text)', textAlign: 'center' }}>
+                    Imported successfully
+                  </div>
+                  <div style={{ font: '600 13px Urbanist', color: 'var(--text-muted)', textAlign: 'center' }}>
+                    Added {importPreview?.summary?.coursesCount || 0} course{importPreview?.summary?.coursesCount === 1 ? '' : 's'} and{' '}
+                    {importPreview?.summary?.modulesCount || 0} module{importPreview?.summary?.modulesCount === 1 ? '' : 's'} to this track.
+                  </div>
+                  <button type="button" className="pillbtn" onClick={closeImportModal} style={{ marginTop: '8px' }}>
+                    Done
+                  </button>
+                </div>
+              )}
+
+            </div>
           </div>
         </div>
       )}

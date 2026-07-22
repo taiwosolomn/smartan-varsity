@@ -337,6 +337,7 @@ def startup_event():
         "ALTER TABLE courses ADD COLUMN IF NOT EXISTS deliverable TEXT",
         "ALTER TABLE courses ADD COLUMN IF NOT EXISTS spans_weeks TEXT",
         "ALTER TABLE courses ADD COLUMN IF NOT EXISTS reference TEXT",
+        "ALTER TABLE courses ADD COLUMN IF NOT EXISTS description TEXT",
     ]:
         try:
             db_mig.execute(text(col_sql))
@@ -1216,6 +1217,204 @@ def delete_track(track_id: str, current_user: User = Depends(get_current_user), 
     db.delete(track)
     db.commit()
     return {"message": "Track deleted"}
+
+
+# --- BULK COURSES/MODULES JSON IMPORT (append-only, into an existing track) ---
+# Mirrors the curriculum importer's validate-then-confirm shape (see _validate_curriculum_json
+# and router_curriculum above), but scoped to a single track and intentionally lighter: no
+# staging table/resumable review page, since there's no scheduling data to review — just
+# names/descriptions. Never touches deadline/day/due_by_week/etc., so imported rows land
+# fully unscheduled, same as a manually-added course/module.
+
+def _validate_courses_modules_json(data):
+    """Hand-rolled structural validation returning a flat list of {field, message} errors,
+    same shape as _validate_curriculum_json's error objects."""
+    errors = []
+    if not isinstance(data, dict):
+        return [{"field": "root", "message": "JSON must be an object with a 'courses' array."}]
+
+    courses = data.get("courses")
+    if not isinstance(courses, list):
+        errors.append({"field": "courses", "message": "'courses' must be an array."})
+        return errors
+    if len(courses) == 0:
+        errors.append({"field": "courses", "message": "'courses' array is empty — nothing to import."})
+
+    for ci, c in enumerate(courses):
+        prefix = f"courses[{ci}]"
+        if not isinstance(c, dict):
+            errors.append({"field": prefix, "message": "Each course must be an object."})
+            continue
+
+        name = c.get("name")
+        if not isinstance(name, str) or not name.strip():
+            errors.append({"field": f"{prefix}.name", "message": "Course name is required."})
+
+        description = c.get("description")
+        if description is not None and not isinstance(description, str):
+            errors.append({"field": f"{prefix}.description", "message": "Course description must be a string."})
+
+        modules = c.get("modules", [])
+        if modules is None:
+            modules = []
+        if not isinstance(modules, list):
+            errors.append({"field": f"{prefix}.modules", "message": "'modules' must be an array."})
+            continue
+
+        for mi, m in enumerate(modules):
+            mprefix = f"{prefix}.modules[{mi}]"
+            if not isinstance(m, dict):
+                errors.append({"field": mprefix, "message": "Each module must be an object."})
+                continue
+            mname = m.get("name")
+            if not isinstance(mname, str) or not mname.strip():
+                errors.append({"field": f"{mprefix}.name", "message": "Module name is required."})
+            mdescription = m.get("description")
+            if mdescription is not None and not isinstance(mdescription, str):
+                errors.append({"field": f"{mprefix}.description", "message": "Module description must be a string."})
+
+    return errors
+
+
+def _find_courses_modules_duplicates(courses_data, existing_courses):
+    """Flags course/module names that collide either with what's already in the track or
+    within the uploaded file itself. Purely informational — never blocks or merges on its
+    own; the caller decides whether to require confirmation."""
+    dup_courses = []
+    dup_modules = []
+
+    existing_by_name = {c.name.strip().lower(): c for c in existing_courses}
+    seen_course_names = set()
+
+    for c in courses_data:
+        if not isinstance(c, dict):
+            continue
+        name = (c.get("name") or "").strip()
+        if not name:
+            continue
+        key = name.lower()
+
+        if key in existing_by_name:
+            dup_courses.append({"name": name, "reason": "A course with this name already exists in this track."})
+        elif key in seen_course_names:
+            dup_courses.append({"name": name, "reason": "Duplicated within the uploaded file."})
+        seen_course_names.add(key)
+
+        existing_course = existing_by_name.get(key)
+        existing_module_names = (
+            {m.title.strip().lower() for m in existing_course.modules} if existing_course else set()
+        )
+        seen_module_names = set()
+        for m in (c.get("modules") or []):
+            if not isinstance(m, dict):
+                continue
+            mname = (m.get("name") or "").strip()
+            if not mname:
+                continue
+            mkey = mname.lower()
+            if mkey in existing_module_names:
+                dup_modules.append({"course": name, "name": mname, "reason": "A module with this name already exists in this course."})
+            elif mkey in seen_module_names:
+                dup_modules.append({"course": name, "name": mname, "reason": "Duplicated within the uploaded file."})
+            seen_module_names.add(mkey)
+
+    return dup_courses, dup_modules
+
+
+@router_tracks.post("/{track_id}/courses-import/preview")
+def preview_courses_modules_import(track_id: str, payload: dict, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    track = db.query(Track).filter(Track.id == track_id, Track.userId == current_user.id).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    courses_data = payload.get("courses")
+    errors = _validate_courses_modules_json({"courses": courses_data})
+
+    dup_courses, dup_modules = [], []
+    if not errors:
+        existing_courses = (
+            db.query(Course)
+            .filter(Course.trackId == track_id)
+            .options(selectinload(Course.modules))
+            .all()
+        )
+        dup_courses, dup_modules = _find_courses_modules_duplicates(courses_data, existing_courses)
+
+    courses_count = len(courses_data) if isinstance(courses_data, list) else 0
+    modules_count = (
+        sum(len(c.get("modules") or []) for c in courses_data if isinstance(c, dict))
+        if isinstance(courses_data, list) else 0
+    )
+
+    return {
+        "valid": len(errors) == 0,
+        "errors": errors,
+        "duplicates": {"courses": dup_courses, "modules": dup_modules},
+        "summary": {"coursesCount": courses_count, "modulesCount": modules_count},
+    }
+
+
+@router_tracks.post("/{track_id}/courses-import/confirm")
+def confirm_courses_modules_import(track_id: str, payload: dict, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    track = db.query(Track).filter(Track.id == track_id, Track.userId == current_user.id).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    courses_data = payload.get("courses")
+    acknowledge_duplicates = bool(payload.get("acknowledge_duplicates", False))
+
+    errors = _validate_courses_modules_json({"courses": courses_data})
+    if errors:
+        raise HTTPException(status_code=422, detail={"validation_errors": errors})
+
+    existing_courses = (
+        db.query(Course)
+        .filter(Course.trackId == track_id)
+        .options(selectinload(Course.modules))
+        .all()
+    )
+    dup_courses, dup_modules = _find_courses_modules_duplicates(courses_data, existing_courses)
+    if (dup_courses or dup_modules) and not acknowledge_duplicates:
+        raise HTTPException(status_code=409, detail={"duplicates": {"courses": dup_courses, "modules": dup_modules}})
+
+    # Append — never touches existing rows. Order continues from the current max so
+    # imported courses/modules land after whatever's already there, same as the manual
+    # "+ Add course"/"+ Add module" endpoints (max(order) + 1), not reset to 0.
+    max_course_order = db.query(func.max(Course.order)).filter(Course.trackId == track_id).scalar() or 0
+
+    courses_created = 0
+    modules_created = 0
+    for c in courses_data:
+        max_course_order += 1
+        course_id = generate_id("c")
+        course = Course(
+            id=course_id,
+            trackId=track_id,
+            name=c["name"].strip(),
+            description=(c.get("description") or None),
+            order=max_course_order,
+        )
+        db.add(course)
+        courses_created += 1
+
+        module_order = 0
+        for m in (c.get("modules") or []):
+            module_order += 1
+            module = Module(
+                id=generate_id("m"),
+                courseId=course_id,
+                title=m["name"].strip(),
+                description=(m.get("description") or None),
+                type="reading",
+                status="todo",
+                order=module_order,
+            )
+            db.add(module)
+            modules_created += 1
+
+    db.commit()
+    return {"message": "Import complete", "coursesCreated": courses_created, "modulesCreated": modules_created}
+
 
 # --- COURSES ROUTER ---
 router_courses = APIRouter(prefix="/courses", tags=["Courses"])

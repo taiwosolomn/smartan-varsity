@@ -73,6 +73,7 @@ class Course(Base):
     id          = Column(String, primary_key=True, index=True)
     trackId     = Column(String, ForeignKey("tracks.id", ondelete="CASCADE"), nullable=False, index=True)
     name        = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
     order       = Column(Integer, default=0)
     deadline    = Column(Date, nullable=True)
     deliverable = Column(String, nullable=True)
